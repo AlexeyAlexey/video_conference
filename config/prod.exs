@@ -6,7 +6,30 @@ import Config
 # which you should run after static files are built and
 # before starting your production server.
 config :video_conference, VideoConferenceWeb.Endpoint,
-  cache_static_manifest: "priv/static/cache_manifest.json"
+  cache_static_manifest: "priv/static/cache_manifest.json",
+  server: true
+
+#   https: [
+#     ip: {0, 0, 0, 0, 0, 0, 0, 0},
+#     port: 4040,
+#     cipher_suite: :strong,
+#     otp_app: :video_conference,
+#     # keyfile:
+#     #   System.get_env("APP_SSL_KEY_PATH") ||
+#     #     "/home/alexey/Documents/elixir/http3_server/certs/server.key",
+#     # certfile:
+#     #   System.get_env("APP_SSL_CERT_PATH") ||
+#     #     "/home/alexey/Documents/elixir/http3_server/certs/server.crt"
+#     keyfile:
+#       System.get_env("SSL_KEY_PATH") ||
+#         "app/certs/server.key",
+#     certfile:
+#       System.get_env("SSL_CERT_PATH") ||
+#         "app/certs/server.crt"
+#   ],
+#   url: [host: "localhost", port: 4040]
+
+config :video_conference, VideoConference.Repo, database: ":memory:", pool_size: 1
 
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req
@@ -16,6 +39,8 @@ config :swoosh, local: false
 
 # Do not print debug messages in production
 config :logger, level: :info
+
+# config :joken, default_signer: System.get_env("JWT_SECRET") || "secret"
 
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

@@ -15,6 +15,14 @@ defmodule VideoConferenceWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
+  # check_origin: ["//*.example.com"]
+  # TODO correct check_origin: ["//*.example.com"]
+  # websocket: true,
+  socket "/socket", VideoConferenceWeb.GroupSocket,
+    websocket: [check_origin: false],
+    longpoll: false,
+    auth_token: true
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),

@@ -42,8 +42,9 @@ defmodule VideoConference.MixProject do
     [
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.5"},
-      {:ecto_sql, "~> 3.13"},
-      {:postgrex, ">= 0.0.0"},
+      # {:ecto_sql, "~> 3.13"},
+      {:ecto_sqlite3, "~> 0.22.0"},
+      # {:postgrex, ">= 0.0.0"},
       {:phoenix_html, "~> 4.1"},
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.0"},
@@ -65,7 +66,9 @@ defmodule VideoConference.MixProject do
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      # A JSON Web Token (JWT) Library.
+      {:joken, "~> 2.6"}
     ]
   end
 

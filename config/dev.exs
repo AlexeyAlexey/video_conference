@@ -1,15 +1,22 @@
 import Config
 
 # Configure your database
+# config :video_conference, VideoConference.Repo,
+#   username: "postgres",
+#   password: "postgres",
+#   hostname: "127.0.0.1",
+#   port: 5432,
+#   database: "video_conference_dev",
+#   stacktrace: true,
+#   show_sensitive_data_on_connection_error: true,
+#   pool_size: 10
+
+# config :video_conference,
+#   ecto_repos: [VideoConference.Repo],
+#   database: "/home/alexey/Documents/elixir/video_conference/dev.db"
 config :video_conference, VideoConference.Repo,
-  username: "postgres",
-  password: "postgres",
-  hostname: "127.0.0.1",
-  port: 5432,
-  database: "video_conference_dev",
-  stacktrace: true,
-  show_sensitive_data_on_connection_error: true,
-  pool_size: 10
+  database: ":memory:",
+  pool_size: 1
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -20,7 +27,8 @@ config :video_conference, VideoConference.Repo,
 config :video_conference, VideoConferenceWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  # http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT") || "4000")],
+  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT") || "4000")],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
@@ -29,6 +37,21 @@ config :video_conference, VideoConferenceWeb.Endpoint,
     esbuild: {Esbuild, :install_and_run, [:video_conference, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:video_conference, ~w(--watch)]}
   ]
+
+# https: [
+#   port: 4040,
+#   cipher_suite: :strong,
+#   otp_app: :video_conference,
+#   keyfile:
+#     System.get_env("SSL_KEY_PATH") ||
+#       "app/certs/server.key",
+#   certfile:
+#     System.get_env("SSL_CERT_PATH") ||
+#       "app/certs/server.crt"
+# ],
+# url: [host: "localhost", port: 4040]
+
+config :joken, default_signer: System.get_env("JWT_SECRET")
 
 # ## SSL Support
 #

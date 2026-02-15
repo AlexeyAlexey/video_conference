@@ -8,6 +8,9 @@ defmodule VideoConferenceWeb.Router do
     plug :put_root_layout, html: {VideoConferenceWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :put_user_token
+    plug :put_http3_server_cert_hash
+    plug :put_http3_server_host_and_port
   end
 
   pipeline :api do
@@ -18,6 +21,12 @@ defmodule VideoConferenceWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+  end
+
+  scope "/", VideoConferenceWeb do
+    pipe_through :api
+
+    post "/log", LogController, :log
   end
 
   # Other scopes may use custom stacks.
@@ -40,5 +49,18 @@ defmodule VideoConferenceWeb.Router do
       live_dashboard "/dashboard", metrics: VideoConferenceWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+  end
+
+  defp put_user_token(conn, _) do
+    assign(conn, :user_token, Ecto.UUID.generate())
+  end
+
+  defp put_http3_server_cert_hash(conn, _) do
+    assign(conn, :http3_server_cert_hash, System.get_env("HTTP3_SERVER_CERT_HASH"))
+  end
+
+  defp put_http3_server_host_and_port(conn, _) do
+    assign(conn, :http3_server_host, System.get_env("HTTP3_SERVER_HOST"))
+    |> assign(:http3_server_port, System.get_env("HTTP3_SERVER_PORT"))
   end
 end

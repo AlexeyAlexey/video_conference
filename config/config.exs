@@ -7,10 +7,6 @@
 # General application configuration
 import Config
 
-config :video_conference,
-  ecto_repos: [VideoConference.Repo],
-  generators: [timestamp_type: :utc_datetime]
-
 # Configures the endpoint
 config :video_conference, VideoConferenceWeb.Endpoint,
   url: [host: "localhost"],
@@ -21,6 +17,9 @@ config :video_conference, VideoConferenceWeb.Endpoint,
   ],
   pubsub_server: VideoConference.PubSub,
   live_view: [signing_salt: "HUmQ4JeD"]
+
+config :video_conference,
+  ecto_repos: [VideoConference.Repo]
 
 # Configures the mailer
 #
@@ -36,10 +35,12 @@ config :esbuild,
   version: "0.25.4",
   video_conference: [
     args:
-      ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
+      ~w(js/app.js --bundle --target=es2022 --format=esm --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
+
+# ~w(js/app.js vendor/pcm-player-processor.js --bundle --target=es2022 --format=esm --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
 
 # Configure tailwind (the version is required)
 config :tailwind,
