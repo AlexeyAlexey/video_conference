@@ -472,8 +472,10 @@ function geVideoStreamUri(authToken) {
   const streamHost = settingsForm.querySelector('input[id="streamHost"]').value;
   const streamPort = settingsForm.querySelector('input[id="streamPort"]').value;
   const participantId = document.querySelector('input[id="participantId"]').value;
+  const roomId = document.querySelector('input[id="roomId"]').value;
 
-  return `https://${streamHost}:${streamPort}/video/?auth_token=${authToken}&participant_id=${participantId}`;
+
+  return `https://${streamHost}:${streamPort}/video/?auth_token=${authToken}&room_id=${roomId}&participant_id=${participantId}`;
 };
 
 function geAudioStreamUri(authToken) {
@@ -481,8 +483,9 @@ function geAudioStreamUri(authToken) {
   const streamHost = settingsForm.querySelector('input[id="streamHost"]').value;
   const streamPort = settingsForm.querySelector('input[id="streamPort"]').value;
   const participantId = document.querySelector('input[id="participantId"]').value;
+  const roomId = document.querySelector('input[id="roomId"]').value;
 
-  return `https://${streamHost}:${streamPort}/audio/?auth_token=${authToken}&participant_id=${participantId}`;
+  return `https://${streamHost}:${streamPort}/audio/?auth_token=${authToken}&room_id=${roomId}&participant_id=${participantId}`;
 };
 
 function getStreamServerCertHash() {

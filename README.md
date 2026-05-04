@@ -22,6 +22,8 @@ Look at group_socket.js file
 
 I will try to add more information about different parts of that code
 
+This app uses [http3_server](https://github.com/AlexeyAlexey/http3_server) as Stream Server
+
 ## HTTP/3
 
 HTTP/3 uses the QUIC protocol over UDP to eliminate head-of-line blocking, providing better performance on unstable networks and reducing latency.
@@ -191,7 +193,7 @@ tar -czvf video_conference.tar.gz ./app
 # Deploying to remote server
 
 If you want to deploy it to remote server you can use the following approach.
-If you want to use this approach you should read more what directory should be used what system users should be used and what permissions they should be have and wht folder permissions should be.
+If you want to use this approach you should read more what directory should be used what system users should be used and what permissions they should be have and what folder permissions should be.
 
 The following example is a quick example 
 
