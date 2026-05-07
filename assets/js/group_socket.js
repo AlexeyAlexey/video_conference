@@ -3,9 +3,9 @@
 
 // Bring in Phoenix channels client library:
 import { Socket } from "phoenix"
-import { Http3StreamMessageParser } from './http3_stream_message_parser.js';
 import { CurrentParticipantCamera } from './current_participant_camera.js';
 import { ParticipantPlayerManager } from './participant_player_manager.js';
+import { WebTransportStreamConnection } from './web_transport_stream_connection.js'
 
 // And connect to the path in "lib/video_conference_web/endpoint.ex". We pass the
 // token for authentication.
@@ -15,6 +15,12 @@ import { ParticipantPlayerManager } from './participant_player_manager.js';
 console.log(getManagerServerUri())
 let socket = new Socket(getManagerServerUri(), { authToken: window.userToken })
 socket.connect()
+
+let userChannel = null;
+
+
+let http3ServerVideoStream = new WebTransportStreamConnection();
+let http3ServerAudioStream = new WebTransportStreamConnection();
 
 
 // Now that you are connected, you can join channels with a topic.
@@ -27,154 +33,6 @@ socket.connect()
 //   'video/webm',
 //   'video/mp4' // Supported in Chrome 126+
 // ];
-
-
-//////////////////// WebTransport start
-let http3ServerStreamVideoWriter = Promise.withResolvers()
-let http3ServerStreamVideoReader = Promise.withResolvers()
-let webSocketRoomChannel = Promise.withResolvers()
-
-function hexToBytes(hexString) {
-  const cleanHex = hexString.replace(/[:\s]/g, '');
-  const bytes = new Uint8Array(cleanHex.length / 2);
-  for (let i = 0; i < cleanHex.length; i += 2) {
-    bytes[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
-  }
-  return bytes;
-}
-
-async function initVideoTransport(authToken) {
-  try {
-    var http3Server
-    const http3ServerUri = geVideoStreamUri(authToken);
-    const streamServerCertHash = getStreamServerCertHash();
-
-    console.log(streamServerCertHash)
-
-
-    if (streamServerCertHash) {
-      console.info("self sighed")
-      // When self signed certificate is used
-      http3Server = new WebTransport(http3ServerUri, {
-        serverCertificateHashes: [
-          {
-            algorithm: "sha-256",
-            value: hexToBytes(streamServerCertHash)
-          }
-        ]
-      });
-    } else {
-      http3Server = new WebTransport(http3ServerUri);
-    }
-
-    await http3Server.ready;
-
-    const http3ServerStream = await http3Server.createBidirectionalStream();
-
-
-    const writer = http3ServerStream.writable.getWriter();
-    http3ServerStreamVideoWriter.resolve(writer);
-
-    const http3ServerStreamVideoReaderStream = http3ServerStream.readable.pipeThrough(
-      new TransformStream(new Http3StreamMessageParser(1024 * 1024)) // 1MB buffer
-    );
-
-    const reader = http3ServerStreamVideoReaderStream.getReader()
-    http3ServerStreamVideoReader.resolve(reader)
-
-  } catch (err) {
-    console.error("Error:", err);
-  }
-}
-
-// initVideoTransport(authToken);
-
-
-
-let http3ServerStreamAudioWriter = Promise.withResolvers();
-let http3ServerStreamAudioReader = Promise.withResolvers();
-
-async function initAudioTransport(authToken) {
-  try {
-    var http3Server;
-    const http3ServerUri = geAudioStreamUri(authToken)
-    const streamServerCertHash = getStreamServerCertHash();
-
-    if (streamServerCertHash) {
-      http3Server = new WebTransport(http3ServerUri, {
-        serverCertificateHashes: [
-          {
-            algorithm: "sha-256",
-            value: hexToBytes(streamServerCertHash)
-          }
-        ]
-      });
-    } else {
-      http3Server = new WebTransport(http3ServerUri);
-
-    }
-
-    await http3Server.ready;
-
-    const http3ServerStream = await http3Server.createBidirectionalStream();
-
-
-    const writer = http3ServerStream.writable.getWriter();
-    http3ServerStreamAudioWriter.resolve(writer);
-
-    const http3ServerStreamVideoReaderStream = http3ServerStream.readable.pipeThrough(
-      new TransformStream(new Http3StreamMessageParser(1024 * 1024)) // 1MB buffer
-    );
-
-    const reader = http3ServerStreamVideoReaderStream.getReader()
-    http3ServerStreamAudioReader.resolve(reader)
-
-  } catch (err) {
-    console.error("Error:", err);
-  }
-}
-
-// initAudioTransport(authToken);
-
-
-function http3ServerStreamSendVideo(data) {
-  return new Promise((resolve, reject) => {
-    http3ServerStreamVideoWriter.promise.then((writer) => {
-      // decodeStreamByte(data)
-      writer.write(data)
-        .then(() => {
-          // console.info("encode");
-        })
-        .catch((error) => {
-          // TODO implement reconnection
-          console.error("Data cannot be sent: ", error);
-          // reject(error);
-        });
-    });
-
-    resolve();
-  }).catch(err => reject(err));
-}
-
-function http3ServerStreamSendAudio(data) {
-  return new Promise((resolve, reject) => {
-    http3ServerStreamAudioWriter.promise.then((writer) => {
-      // decodeStreamByte(data)
-      writer.write(data)
-        .then(() => {
-          // console.info("encode");
-        })
-        .catch((error) => {
-          console.error("Data cannot be sent: ", error);
-          // reject(error);
-        });
-    });
-
-    resolve();
-  }).catch(err => reject(err));
-}
-
-/////////////////// WebTransport end
 
 
 function decodeChunk(payload) {
@@ -249,8 +107,8 @@ updateVideoToggleUI();
 updateAudioToggleUI();
 
 var currentParticipantCamera = new CurrentParticipantCamera(getParticipantId(),
-  http3ServerStreamSendVideo,
-  http3ServerStreamSendAudio,
+  http3ServerVideoStream.write.bind(http3ServerVideoStream),
+  http3ServerAudioStream.write.bind(http3ServerAudioStream),
   {
     codec: 'vp8',
     width: 640,
@@ -314,74 +172,43 @@ function updateAudioToggleUI() {
   } catch { }
 }
 
+async function startVideoReading() {
+
+  http3ServerVideoStream.reader((value) => {
+    if (value) {
+      try {
+        const decoded = decodeChunk(value);
+
+        participantPlayerManager.play(decoded.participantId, decoded)
+
+      } catch (error) {
+        console.info("Stream Video reader error:", error);
+      }
+
+    }
 
 
+  })
+};
 
-function startVideoReadingLoop() {
-  http3ServerStreamVideoReader.promise.then((reader) => {
-    // readingLoop(reader);
-    const loop = () => {
-      return reader.read().then(({ value, done }) => {
-        if (done) {
-          console.info("Stream stopped by server");
-          return;
-        }
+async function startAudioReading() {
 
-        if (value) {
-          try {
-            const decoded = decodeChunk(value);
+  http3ServerAudioStream.reader((value) => {
+    if (value) {
+      try {
+        const decoded = decodeAudioChunk(value);
 
-            participantPlayerManager.play(decoded.participantId, decoded)
+        participantPlayerManager.playAudio(decoded.participantId, decoded)
 
-          } catch (error) {
-            console.info("Stream reader error:", error);
-          }
+      } catch (error) {
+        console.info("Stream Audio reader error:", error);
+      }
 
-        }
-
-        return loop();
-      }).catch(err => {
-        console.error("Reading exception rerun after 1 second...", err);
-        setTimeout(loop, 1000);
-      });
-    };
-
-    loop();
+    }
   });
+
 }
 
-
-function startAudioReadingLoop() {
-  http3ServerStreamAudioReader.promise.then((reader) => {
-    const loop = () => {
-      return reader.read().then(({ value, done }) => {
-        if (done) {
-          console.info("Stream stopped by server");
-          return;
-        }
-
-        if (value) {
-          try {
-            const decoded = decodeAudioChunk(value);
-
-            participantPlayerManager.playAudio(decoded.participantId, decoded)
-
-          } catch (error) {
-            console.info("Stream reader error:", error);
-          }
-
-        }
-
-        return loop();
-      }).catch(err => {
-        console.error("Reading exception rerun after 1 second...", err);
-        setTimeout(loop, 1000);
-      });
-    };
-
-    loop();
-  });
-}
 
 
 const startBtn = document.getElementById('startBtn');
@@ -396,35 +223,34 @@ startBtn?.addEventListener('click', function (event) {
   const authToken = event.target.dataset.authToken;
   const roomId = getRoomId();
   const participantId = getParticipantId();
+  const streamServerCertHash = getStreamServerCertHash();
 
   if (authToken) {
     console.info("startBtn authToken")
 
-    webSocketRoomChannel.resolve({ roomId: roomId, participantId: participantId, authToken: authToken })
+    connectUserChannel(roomId, participantId, authToken)
   }
 
   if (authToken && http3ReadingStarted == false) {
     console.info("startBtn authToken http3ReadingStarted")
 
-    initVideoTransport(authToken)
+    http3ServerVideoStream.connect(geVideoStreamUri(authToken), streamServerCertHash)
       .catch((e) => { console.info(`cannot connect to a server for video streaming error: ${e}`) })
       .then(() => {
 
         console.info('connected to a server to stream video');
 
-        startVideoReadingLoop();
+        startVideoReading();
         currentParticipantCamera.startVideo();
 
 
       });
 
-    initAudioTransport(authToken)
+    http3ServerAudioStream.connect(getAudioStreamUri(authToken), streamServerCertHash)
       .catch((e) => { console.info(`cannot connect to a server for audio streaming error: ${e}`) })
       .then(() => {
 
-        console.info('connected to a server to stream audio');
-
-        startAudioReadingLoop();
+        startAudioReading();
         currentParticipantCamera.startAudio();
 
       });
@@ -478,7 +304,7 @@ function geVideoStreamUri(authToken) {
   return `https://${streamHost}:${streamPort}/video/?auth_token=${authToken}&room_id=${roomId}&participant_id=${participantId}`;
 };
 
-function geAudioStreamUri(authToken) {
+function getAudioStreamUri(authToken) {
   const settingsForm = document.querySelector("#settingsForm");
   const streamHost = settingsForm.querySelector('input[id="streamHost"]').value;
   const streamPort = settingsForm.querySelector('input[id="streamPort"]').value;
@@ -518,24 +344,21 @@ function getManagerServerUri() {
 
 // WebSocket
 
+// TODO create one user channel
+async function connectUserChannel(roomId, participantId, authToken) {
+  userChannel = socket.channel(`room:${roomId}`, { participant_id: participantId, auth_token: authToken })
 
-webSocketRoomChannel.promise.then(({ roomId, participantId, authToken }) => {
-  const channel = socket.channel(`room:${roomId}`, { participant_id: participantId, auth_token: authToken })
-
-  channel.join()
+  userChannel.join()
     .receive("ok", resp => { console.info("Joined successfully", resp) })
     .receive("error", resp => { console.info("Unable to join", resp) })
 
-  channel.on("participant_left", payload => {
+  userChannel.on("participant_left", payload => {
     console.info(`participant_left participant_id ${payload.participant_id}`)
 
     participantPlayerManager.remove(Number(payload.participant_id))
   })
-}).catch(err => {
-  console.error("cannot be connected to channel", err);
-});
 
-
+};
 
 
 

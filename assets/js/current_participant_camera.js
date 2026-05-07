@@ -248,8 +248,7 @@ class CurrentParticipantCameraVideo {
         body: u8
       }).then(finalBuffer => {
 
-        this.http3ServerStreamSendData(finalBuffer).then(() => { }
-        ).catch(err => console.error("Data cannot be sent:", err));
+        this.http3ServerStreamSendData(finalBuffer)
 
       }).catch((e) => {
         console.error('Error encodeChunk: ', e);
@@ -450,8 +449,7 @@ class CurrentParticipantCameraAudio {
         body: u8
       }).then(finalBuffer => {
 
-        this.http3ServerStreamSendData(finalBuffer).then(() => { }
-        ).catch(err => console.error("Data cannot be sent:", err));
+        this.http3ServerStreamSendData(finalBuffer)
 
       }).catch((e) => {
         console.error('Error encodeChunk: ', e);
@@ -485,6 +483,9 @@ export class CurrentParticipantCamera {
     this.videoProcessor = null;
     this.videoEnabled = videoSettings.videoEnabled;
     this.audioEnabled = audioSettings.audioEnabled;
+
+    this.runVideo = false;
+    this.runAudio = false;
 
     this.video = document.querySelector(`video[id="${this.participantId}"]`);
 
@@ -529,6 +530,7 @@ export class CurrentParticipantCamera {
 
   async #initMediaStream() {
     if (this.videoProcessor) return;
+
     console.log('requesting camera');
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -540,6 +542,15 @@ export class CurrentParticipantCamera {
         }
         // video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }
       });
+      console.info("mediaStream initialized")
+
+      if (this.runVideo) {
+        this.startVideo();
+      };
+
+      if (this.runAudio) {
+        this.startAudio();
+      }
     } catch (err) {
 
       console.error('getUserMedia failed', err);
@@ -556,6 +567,7 @@ export class CurrentParticipantCamera {
   }
 
   async startVideo() {
+    this.runVideo = true;
     if (this.mediaStream) {
       this.videoProcessor = new CurrentParticipantCameraVideo(
         this.participantId,
@@ -571,6 +583,8 @@ export class CurrentParticipantCamera {
     }
   }
   async startAudio() {
+    this.runAudio = true;
+
     if (this.mediaStream) {
       this.audioProcessor = new CurrentParticipantCameraAudio(
         this.participantId,
