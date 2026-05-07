@@ -25,26 +25,6 @@
       <div class="flex-1">
         <span class="text-lg font-semibold">WebCodecs Capture → Encode</span>
       </div>
-      <label class="label cursor-pointer gap-2">
-        <span class="label-text text-sm">room id: </span>
-        <input
-          id="roomId"
-          type="text"
-          value={@room_id}
-          placeholder="1234"
-          class="input input-bordered input-sm w-full"
-        />
-      </label>
-      <label class="label cursor-pointer gap-2">
-        <span class="label-text text-sm">participant id: </span>
-        <input
-          id="participantId"
-          type="number"
-          value={@participant_id}
-          placeholder="1234"
-          class="input input-bordered input-sm w-full"
-        />
-      </label>
       <div class="flex-none gap-2">
         <button
           id="startBtn"
@@ -53,6 +33,35 @@
         >
           Start
         </button>
+      </div>
+    </div>
+
+    <div class="space-y-3 p-3 rounded-box bg-base-100">
+      <div class="text-sm font-medium opacity-80">Room</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="form-control">
+          <label class="label"><span class="label-text">Room ID</span></label>
+          <input
+            id="roomId"
+            name="roomId"
+            value={@room_id}
+            type="text"
+            placeholder="room-123"
+            class="input input-bordered input-sm w-full"
+          />
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text">Participant ID</span></label>
+          <input
+            id="participantId"
+            name="participantId"
+            value={@participant_id}
+            type="number"
+            inputmode="numeric"
+            placeholder="1"
+            class="input input-bordered input-sm w-full"
+          />
+        </div>
       </div>
     </div>
 
