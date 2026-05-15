@@ -234,6 +234,8 @@ startBtn?.addEventListener('click', function (event) {
   if (authToken && http3ReadingStarted == false) {
     console.info("startBtn authToken http3ReadingStarted")
 
+    console.log(`streamServerCertHash ${streamServerCertHash}`)
+
     http3ServerVideoStream.connect(geVideoStreamUri(authToken), streamServerCertHash)
       .catch((e) => { console.info(`cannot connect to a server for video streaming error: ${e}`) })
       .then(() => {

@@ -18,7 +18,7 @@ defmodule VideoConferenceWeb do
   """
 
   def static_paths,
-    do: ~w(assets fonts images js favicon.ico robots.txt .well-known)
+    do: ~w(assets fonts images js favicon.ico robots.txt .well-known app.webmanifest)
 
   def router do
     quote do
