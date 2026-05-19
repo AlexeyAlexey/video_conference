@@ -23,6 +23,13 @@ defmodule VideoConferenceWeb.Endpoint do
     longpoll: false,
     auth_token: true
 
+  socket "/socket/phone", VideoConferenceWeb.PhoneSocket,
+    websocket: [check_origin: false],
+    longpoll: false,
+    auth_token: true
+
+  plug CORSPlug, origin: "*"
+
   # Serve at "/" the static files from "priv/static" directory.
   #
   # When code reloading is disabled (e.g., in production),
