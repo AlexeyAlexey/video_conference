@@ -40,6 +40,7 @@ defmodule VideoConference.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:bcrypt_elixir, "~> 3.0"},
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.5"},
       # {:ecto_sql, "~> 3.13"},
@@ -68,7 +69,9 @@ defmodule VideoConference.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
       # A JSON Web Token (JWT) Library.
-      {:joken, "~> 2.6"}
+      {:joken, "~> 2.6"},
+      # An Elixir Plug to add Cross-Origin Resource Sharing (CORS).
+      {:cors_plug, "~> 3.0"}
     ]
   end
 

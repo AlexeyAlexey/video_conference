@@ -172,6 +172,12 @@ Dev env
 dotenv -e .env iex -S mix phx.server
 ```
 
+Test env
+
+```bash
+dotenv -e .env.test mix test
+```
+
 # Copying release to a host machine 
 
 The ```docker container``` create (or shorthand: docker create) command creates a new container from the specified image, without starting it.

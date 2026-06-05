@@ -7,6 +7,19 @@
 # General application configuration
 import Config
 
+config :video_conference, :scopes,
+  phone: [
+    default: true,
+    module: VideoConference.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:phone, :id],
+    schema_key: :phone_id,
+    schema_type: :id,
+    schema_table: :phones,
+    test_data_fixture: VideoConference.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_phone
+  ]
+
 # Configures the endpoint
 config :video_conference, VideoConferenceWeb.Endpoint,
   url: [host: "localhost"],

@@ -1,6 +1,8 @@
 defmodule VideoConferenceWeb.Router do
   use VideoConferenceWeb, :router
 
+  import VideoConferenceWeb.AccountAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -17,16 +19,28 @@ defmodule VideoConferenceWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/", VideoConferenceWeb do
-    pipe_through :browser
-
-    get "/", PageController, :home
+  pipeline :require_api_authentication do
+    plug :fetch_current_scope_for_api
   end
 
   scope "/", VideoConferenceWeb do
     pipe_through :api
 
-    post "/log", LogController, :log
+    # post "/log", LogController, :log
+    post "/phones/register", PhoneRegistrationController, :register
+    post "/phones/log-in", PhoneSessionController, :log_in
+  end
+
+  scope "/", VideoConferenceWeb do
+    pipe_through [:api, :require_api_authentication]
+
+    delete "/phones/log-out", PhoneSessionController, :log_out
+  end
+
+  scope "/", VideoConferenceWeb do
+    pipe_through :browser
+
+    get "/", PageController, :home
   end
 
   # Other scopes may use custom stacks.
@@ -63,4 +77,30 @@ defmodule VideoConferenceWeb.Router do
     assign(conn, :http3_server_host, System.get_env("HTTP3_SERVER_HOST"))
     |> assign(:http3_server_port, System.get_env("HTTP3_SERVER_PORT"))
   end
+
+  ## Authentication routes
+
+  # scope "/", VideoConferenceWeb do
+  #   pipe_through [:browser, :redirect_if_phone_is_authenticated]
+
+  #   get "/phones/register", PhoneRegistrationController, :new
+  #   post "/phones/register", PhoneRegistrationController, :create
+  # end
+
+  # scope "/", VideoConferenceWeb do
+  #   pipe_through [:browser, :require_authenticated_phone]
+
+  #   get "/phones/settings", PhoneSettingsController, :edit
+  #   put "/phones/settings", PhoneSettingsController, :update
+  #   get "/phones/settings/confirm-email/:token", PhoneSettingsController, :confirm_email
+  # end
+
+  # scope "/", VideoConferenceWeb do
+  #   pipe_through [:browser]
+
+  #   get "/phones/log-in", PhoneSessionController, :new
+  #   get "/phones/log-in/:token", PhoneSessionController, :confirm
+  #   post "/phones/log-in", PhoneSessionController, :create
+  #   delete "/phones/log-out", PhoneSessionController, :delete
+  # end
 end

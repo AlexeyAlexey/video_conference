@@ -1,5 +1,8 @@
 import Config
 
+# Only in tests, remove the complexity from the password hashing algorithm
+config :bcrypt_elixir, :log_rounds, 1
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
@@ -17,7 +20,12 @@ import Config
 #   ecto_repos: [VideoConference.Repo],
 #   database: "/home/alexey/Documents/elixir/video_conference/test.db"
 
-config :video_conference, VideoConference.Repo, database: ":memory:", pool_size: 1
+# config :video_conference, VideoConference.Repo, database: ":memory:", pool_size: 1
+
+config :video_conference, VideoConference.Repo,
+  database: "/home/alexey/Documents/elixir/video_conference_db/test.db",
+  pool: Ecto.Adapters.SQL.Sandbox,
+  pool_size: 1
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
@@ -41,3 +49,5 @@ config :phoenix, :plug_init_mode, :runtime
 # Enable helpful, but potentially expensive runtime checks
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
+
+config :joken, default_signer: System.get_env("JWT_SECRET")
