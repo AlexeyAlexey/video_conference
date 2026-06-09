@@ -40,6 +40,9 @@ config :swoosh, local: false
 # Do not print debug messages in production
 config :logger, level: :info
 
+config :video_conference, :telephone_switchboard,
+  private_key: System.get_env("TELEPHONE_SWITCHBOARD_PRIVET_KEY")
+
 # config :joken, default_signer: System.get_env("JWT_SECRET") || "secret"
 
 # Runtime production configuration, including reading

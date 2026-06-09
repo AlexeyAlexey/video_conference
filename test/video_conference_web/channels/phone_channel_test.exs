@@ -69,7 +69,7 @@ defmodule VideoConferenceWeb.PhoneChannelTest do
     end
   end
 
-  describe "call" do
+  describe "calls between locals" do
     test "receive switchboard auth token" do
       outcome_phone = create_phone_account(1234)
       create_phone_account(54321)
@@ -81,11 +81,21 @@ defmodule VideoConferenceWeb.PhoneChannelTest do
       {:ok, _, socket} =
         subscribe_and_join(socket, PhoneChannel, "phone:#{1234}", %{})
 
-      ref = push(socket, "call", %{"to" => to})
+      ref = push(socket, "call", %{"to_host" => "local", "to" => to})
 
-      assert_reply ref, :ok, %{"to" => ^to, "switchboard_auth_token" => switchboard_auth_token}
+      assert_reply ref, :ok, %{
+        "to_host" => "local",
+        "to" => ^to,
+        "switchboard_audio_server_cert_hash" => switchboard_audio_server_cert_hash,
+        "switchboard_audio_uri" => switchboard_audio_uri,
+        "switchboard_video_server_cert_hash" => switchboard_video_server_cert_hash,
+        "switchboard_video_uri" => switchboard_video_uri
+      }
 
-      assert switchboard_auth_token
+      assert switchboard_audio_server_cert_hash
+      assert switchboard_audio_uri
+      assert switchboard_video_server_cert_hash
+      assert switchboard_video_uri
     end
 
     test "broadcast income call to destination" do
@@ -104,17 +114,17 @@ defmodule VideoConferenceWeb.PhoneChannelTest do
 
       VideoConferenceWeb.Endpoint.subscribe(calling_topic)
 
-      push(socket, "call", %{"to" => to})
+      push(socket, "call", %{"to_host" => "local", "to" => to})
 
       assert_receive %Phoenix.Socket.Broadcast{
         topic: ^calling_topic,
         event: "income_call",
-        payload: %{"from" => ^from}
+        payload: %{"from_host" => "local", "from" => ^from}
       }
     end
   end
 
-  describe "income_call" do
+  describe "income_call from local" do
     test "income_call" do
       create_phone_account(1234)
       destination_phone = create_phone_account(54321)
@@ -129,14 +139,21 @@ defmodule VideoConferenceWeb.PhoneChannelTest do
       {:ok, _, socket} =
         subscribe_and_join(socket, PhoneChannel, "phone:#{to}", %{})
 
-      ref = push(socket, "income_call", %{"from" => from})
+      ref = push(socket, "income_call", %{"from_host" => "local", "from" => from})
 
       assert_reply ref, :ok, %{
+        "from_host" => "local",
         "from" => ^from,
-        "switchboard_auth_token" => switchboard_auth_token
+        "switchboard_audio_server_cert_hash" => switchboard_audio_server_cert_hash,
+        "switchboard_audio_uri" => switchboard_audio_uri,
+        "switchboard_video_server_cert_hash" => switchboard_video_server_cert_hash,
+        "switchboard_video_uri" => switchboard_video_uri
       }
 
-      assert switchboard_auth_token
+      assert switchboard_audio_server_cert_hash
+      assert switchboard_audio_uri
+      assert switchboard_video_server_cert_hash
+      assert switchboard_video_uri
     end
   end
 end

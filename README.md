@@ -391,3 +391,8 @@ chmod +x ./switch_to_release.sh
 ./switch_to_release.sh remote_user remote_host release
 ./switch_to_release.sh root "xx.xx.xx.xx" 20260428_184535
 ```
+
+
+openssl genrsa -out private_key.pem 2048
+
+openssl rsa -in private_key.pem -outform PEM -pubout -out public_key.pem

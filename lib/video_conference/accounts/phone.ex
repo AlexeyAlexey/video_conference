@@ -6,8 +6,8 @@ defmodule VideoConference.Accounts.Phone do
     field :phone, :integer
     field :password, :string, virtual: true, redact: true
     field :hashed_password, :string, redact: true
-    field :confirmed_at, :naive_datetime
-    field :authenticated_at, :naive_datetime, virtual: true
+    field :confirmed_at, :utc_datetime
+    field :authenticated_at, :utc_datetime, virtual: true
 
     timestamps()
   end

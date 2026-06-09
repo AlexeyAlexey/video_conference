@@ -58,10 +58,7 @@ defmodule VideoConferenceWeb.PhoneSocket do
     end
   end
 
-  # def connect(_params, _socket, _connect_info), do: :error
-  def connect(params, _socket, connect_info) do
-    :error
-  end
+  def connect(_params, _socket, _connect_info), do: :error
 
   # Socket IDs are topics that allow you to identify all sockets for a given user:
   #

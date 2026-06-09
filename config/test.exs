@@ -51,3 +51,6 @@ config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
 config :joken, default_signer: System.get_env("JWT_SECRET")
+
+config :video_conference, :telephone_switchboard,
+  private_key: System.get_env("TELEPHONE_SWITCHBOARD_PRIVET_KEY")

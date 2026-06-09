@@ -31,6 +31,11 @@ config :video_conference, VideoConferenceWeb.Endpoint,
   pubsub_server: VideoConference.PubSub,
   live_view: [signing_salt: "HUmQ4JeD"]
 
+config :video_conference, VideoConference.Repo,
+  migration_timestamps: [
+    type: :utc_datetime
+  ]
+
 config :video_conference,
   ecto_repos: [VideoConference.Repo]
 

@@ -11,6 +11,9 @@ import Config
 #   show_sensitive_data_on_connection_error: true,
 #   pool_size: 10
 
+config :video_conference, :telephone_switchboard,
+  private_key: System.get_env("TELEPHONE_SWITCHBOARD_PRIVET_KEY")
+
 # config :video_conference,
 #   ecto_repos: [VideoConference.Repo],
 #   database: "/home/alexey/Documents/elixir/video_conference/dev.db"
