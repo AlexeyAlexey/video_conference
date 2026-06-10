@@ -6,7 +6,7 @@ defmodule VideoConference.Accounts do
   import Ecto.Query, warn: false
   alias VideoConference.Repo
 
-  alias VideoConference.Accounts.{Phone, Token, PhoneCall}
+  alias VideoConference.Accounts.{Phone, Token}
 
   ## Database getters
 
@@ -179,12 +179,6 @@ defmodule VideoConference.Accounts do
   def delete_session_token(token) do
     Repo.delete_all(from(Token, where: [token: ^token, context: "session"]))
     :ok
-  end
-
-  def call_to(attrs) do
-    %PhoneCall{}
-    |> PhoneCall.call_changeset(attrs)
-    |> Repo.insert()
   end
 
   ## Token helper

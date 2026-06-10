@@ -6,6 +6,7 @@ defmodule VideoConferenceWeb.PhoneChannel do
   alias VideoConference.Accounts
   alias VideoConferenceWeb.PhoneChannelPresenter, as: Presenter
   alias VideoConference.TelephoneSwitchboard
+  alias VideoConference.PhoneCalls
 
   # TODO add calls table to track calls (from, to, status (calling, rejected, not_picked_up, picked_up), initiated_at)
 
@@ -15,6 +16,7 @@ defmodule VideoConferenceWeb.PhoneChannel do
         socket
       ) do
     if String.to_integer(phone_number) == socket.assigns.current_phone_number do
+      send(self(), "after_joined")
       {:ok, socket}
     else
       {:error, %{reason: "unauthorized"}}
@@ -32,8 +34,10 @@ defmodule VideoConferenceWeb.PhoneChannel do
     if current_phone_number(socket) == to do
       {:reply, {:error, "You are trying to call yourself"}, socket}
     else
-      Accounts.call_to(%{
+      PhoneCalls.call_to(%{
+        from_host: "local",
         from: current_phone_number(socket),
+        to_host: to_host,
         to: to,
         called_at: DateTime.utc_now()
       })
@@ -109,6 +113,20 @@ defmodule VideoConferenceWeb.PhoneChannel do
 
       {:reply, {:ok, response}, socket}
     end
+  end
+
+  def handle_info("after_joined", socket) do
+    res =
+      PhoneCalls.get_current_income_calls(to_host: "local", to: current_phone_number(socket))
+      |> Presenter.current_income_calls()
+
+    VideoConferenceWeb.Endpoint.broadcast!(
+      "phone:#{current_phone_number(socket)}",
+      "current_income_calls",
+      %{body: res}
+    )
+
+    {:noreply, socket}
   end
 
   defp current_phone_number(socket), do: socket.assigns.current_phone_number

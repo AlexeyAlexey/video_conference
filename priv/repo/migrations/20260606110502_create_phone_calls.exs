@@ -8,9 +8,9 @@ defmodule VideoConference.Repo.Migrations.CreatePhoneCalls do
       add :to_host, :string
       add :to, :integer
 
-      add :called_at, :utc_datetime, null: false
-      add :responded_at, :utc_datetime
-      add :ended_at, :utc_datetime
+      add :called_at, :integer, null: false
+      add :responded_at, :integer
+      add :ended_at, :integer
 
       timestamps()
     end
