@@ -21,7 +21,8 @@ defmodule VideoConferenceWeb.AccountAuth do
     else
       _ ->
         conn
-        |> send_resp(:unauthorized, "No access for you")
+        |> put_resp_content_type("application/json")
+        |> send_resp(:unauthorized, Jason.encode!(%{error: "Unauthorized"}))
         |> halt()
     end
   end

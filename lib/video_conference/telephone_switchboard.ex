@@ -6,7 +6,7 @@ defmodule VideoConference.TelephoneSwitchboard do
     HostPublicKey.fetch(host)
   end
 
-  def get_connection_options_for("video", "local", "phone_call" = type, token_params)
+  def get_connection_options_for("video", "phone_call" = type, token_params)
       when is_map(token_params) do
     token_params =
       token_params
@@ -19,7 +19,7 @@ defmodule VideoConference.TelephoneSwitchboard do
     }
   end
 
-  def get_connection_options_for("audio", "local", "phone_call" = type, token_params)
+  def get_connection_options_for("audio", "phone_call" = type, token_params)
       when is_map(token_params) do
     token_params =
       token_params

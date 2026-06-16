@@ -3,7 +3,6 @@ defmodule VideoConferenceWeb.PhoneChannel do
 
   require Logger
 
-  alias VideoConference.Accounts
   alias VideoConferenceWeb.PhoneChannelPresenter, as: Presenter
   alias VideoConference.TelephoneSwitchboard
   alias VideoConference.PhoneCalls
@@ -23,93 +22,89 @@ defmodule VideoConferenceWeb.PhoneChannel do
     end
   end
 
-  def handle_in("list_of_phones", _params, socket) do
-    {:reply,
-     {:ok,
-      Accounts.all(except_phone_numbers: [socket.assigns.current_phone_number])
-      |> Presenter.list_of_phones()}, socket}
+  def handle_in("call", %{"to_host_id" => _to_host_id, "to" => _to}, socket) do
+    # TODO Implement
+    {:reply, {:ok, %{}}, socket}
   end
 
-  def handle_in("call", %{"to_host" => "local" = to_host, "to" => to}, socket) do
+  def handle_in("call", %{"to" => to}, socket) do
     if current_phone_number(socket) == to do
       {:reply, {:error, "You are trying to call yourself"}, socket}
     else
       PhoneCalls.call_to(%{
-        from_host: "local",
         from: current_phone_number(socket),
-        to_host: to_host,
         to: to,
         called_at: DateTime.utc_now()
       })
 
-      switchboard_audio_host = "local"
-      switchboard_video_host = "local"
-      from_host = "local"
-
       VideoConferenceWeb.Endpoint.broadcast!("phone:#{to}", "income_call", %{
-        "from_host" => from_host,
         "from" => current_phone_number(socket)
       })
 
       params = %{
-        "from" => "#{from_host}@#{current_phone_number(socket)}",
-        "to" => "#{to_host}@#{to}",
+        "from" => "local@#{current_phone_number(socket)}",
+        "to" => "local@#{to}",
         "direction" => "outcome",
-        "host" => current_host()
+        "host" => "local"
       }
 
       response =
         TelephoneSwitchboard.get_connection_options_for(
           "video",
-          switchboard_video_host,
           "phone_call",
           params
         )
         |> Map.merge(
           TelephoneSwitchboard.get_connection_options_for(
             "audio",
-            switchboard_audio_host,
             "phone_call",
             params
           )
         )
-        |> Map.merge(%{"to_host" => to_host, "to" => to})
+        |> Map.merge(%{"to" => to})
 
       {:reply, {:ok, response}, socket}
     end
   end
 
-  # TODO add calls table to track who to whom calls, to check if there ate a call
-  def handle_in("income_call", %{"from_host" => "local", "from" => from} = _params, socket) do
+  def handle_in(
+        "income_call",
+        %{"from_host_id" => _from_host_id, "from" => _from} = _params,
+        socket
+      ) do
+    # TODO implement
+    {:reply, {:ok, %{}}, socket}
+  end
+
+  def handle_in(
+        "income_call",
+        %{"from" => from},
+        socket
+      ) do
     if socket.assigns.current_phone_number == from do
       {:noreply, socket}
     else
-      switchboard_audio_host = "local"
-      switchboard_video_host = "local"
-
       params = %{
         "from" => "local@#{from}",
         "to" => "local@#{current_phone_number(socket)}",
         "direction" => "income",
-        "host" => current_host()
+        "host" => "local"
       }
 
       response =
         TelephoneSwitchboard.get_connection_options_for(
           "video",
-          switchboard_video_host,
           "phone_call",
           params
         )
         |> Map.merge(
           TelephoneSwitchboard.get_connection_options_for(
             "audio",
-            switchboard_audio_host,
             "phone_call",
             params
           )
         )
-        |> Map.merge(%{"from_host" => "local", "from" => from})
+        |> Map.merge(%{"from" => from})
 
       {:reply, {:ok, response}, socket}
     end
@@ -117,7 +112,7 @@ defmodule VideoConferenceWeb.PhoneChannel do
 
   def handle_info("after_joined", socket) do
     res =
-      PhoneCalls.get_current_income_calls(to_host: "local", to: current_phone_number(socket))
+      PhoneCalls.get_current_income_calls(to: current_phone_number(socket))
       |> Presenter.current_income_calls()
 
     VideoConferenceWeb.Endpoint.broadcast!(
@@ -130,6 +125,4 @@ defmodule VideoConferenceWeb.PhoneChannel do
   end
 
   defp current_phone_number(socket), do: socket.assigns.current_phone_number
-
-  defp current_host, do: "local"
 end

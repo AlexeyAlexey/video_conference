@@ -35,6 +35,9 @@ defmodule VideoConferenceWeb.Router do
     pipe_through [:api, :require_api_authentication]
 
     delete "/phones/log-out", PhoneSessionController, :log_out
+    post "/phone_book/add_phone", PhoneBookController, :add_phone
+    delete "/phone_book/remove_phone", PhoneBookController, :remove_phone
+    get "/phone_book/list", PhoneBookController, :list
   end
 
   scope "/", VideoConferenceWeb do

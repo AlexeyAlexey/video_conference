@@ -3,9 +3,9 @@ defmodule VideoConference.Repo.Migrations.CreatePhoneCalls do
 
   def change do
     create table(:phone_calls) do
-      add :from_host, :string
+      add :from_host_id, :integer
       add :from, :integer
-      add :to_host, :string
+      add :to_host_id, :integer
       add :to, :integer
 
       add :called_at, :integer, null: false

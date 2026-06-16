@@ -3,9 +3,9 @@ defmodule VideoConference.PhoneCalls.PhoneCall do
   import Ecto.Changeset
 
   schema "phone_calls" do
-    field :from_host, :string
+    field :from_host_id, :integer
     field :from, :integer
-    field :to_host, :string
+    field :to_host_id, :integer
     field :to, :integer
     field :called_at, SqliteUnixTimestampEctoType
     field :responded_at, SqliteUnixTimestampEctoType
@@ -16,7 +16,7 @@ defmodule VideoConference.PhoneCalls.PhoneCall do
 
   def call_changeset(call, attrs, _opts \\ []) do
     call
-    |> cast(attrs, [:from_host, :from, :to_host, :to, :called_at])
+    |> cast(attrs, [:from_host_id, :from, :to_host_id, :to, :called_at])
   end
 
   def responded_changeset(call, attrs, _opts \\ []) do
@@ -31,6 +31,6 @@ defmodule VideoConference.PhoneCalls.PhoneCall do
 
   def changeset(call, attrs, _opts \\ []) do
     call
-    |> cast(attrs, [:from_host, :from, :to_host, :to, :called_at, :responded_at, :ended_at])
+    |> cast(attrs, [:from_host_id, :from, :to_host_id, :to, :called_at, :responded_at, :ended_at])
   end
 end
