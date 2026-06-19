@@ -29,7 +29,10 @@ config :video_conference, VideoConferenceWeb.Endpoint,
 #   ],
 #   url: [host: "localhost", port: 4040]
 
-config :video_conference, VideoConference.Repo, database: ":memory:", pool_size: 1
+# config :video_conference, VideoConference.Repo, database: ":memory:", pool_size: 1
+# config :video_conference, VideoConference.Repo,
+#   database: System.get_env("DATABASE_PATH"),
+#   pool_size: 3
 
 # Configures Swoosh API Client
 config :swoosh, api_client: Swoosh.ApiClient.Req

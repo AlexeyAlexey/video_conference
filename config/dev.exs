@@ -18,7 +18,7 @@ config :video_conference, :telephone_switchboard,
 #   ecto_repos: [VideoConference.Repo],
 #   database: "/home/alexey/Documents/elixir/video_conference/dev.db"
 config :video_conference, VideoConference.Repo,
-  database: "/home/alexey/Documents/elixir/video_conference_db/dev.db",
+  database: System.get_env("DATABASE_PATH"),
   pool_size: 3
 
 # For development, we disable any cache and enable

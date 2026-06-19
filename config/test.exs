@@ -23,7 +23,7 @@ config :bcrypt_elixir, :log_rounds, 1
 # config :video_conference, VideoConference.Repo, database: ":memory:", pool_size: 1
 
 config :video_conference, VideoConference.Repo,
-  database: "/home/alexey/Documents/elixir/video_conference_db/test.db",
+  database: System.get_env("DATABASE_PATH"),
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: 1
 

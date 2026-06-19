@@ -37,9 +37,7 @@ defmodule VideoConferenceWeb.PhoneChannel do
         called_at: DateTime.utc_now()
       })
 
-      VideoConferenceWeb.Endpoint.broadcast!("phone:#{to}", "income_call", %{
-        "from" => current_phone_number(socket)
-      })
+
 
       params = %{
         "from" => "local@#{current_phone_number(socket)}",
@@ -62,6 +60,10 @@ defmodule VideoConferenceWeb.PhoneChannel do
           )
         )
         |> Map.merge(%{"to" => to})
+
+      VideoConferenceWeb.Endpoint.broadcast!("phone:#{to}", "income_call", %{
+        "from" => current_phone_number(socket)
+      })
 
       {:reply, {:ok, response}, socket}
     end
