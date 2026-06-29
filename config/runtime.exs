@@ -59,9 +59,9 @@ if config_env() == :prod do
 
   telephone_switchboard_private_key =
     System.get_env("TELEPHONE_SWITCHBOARD_PRIVET_KEY") ||
-          raise """
-          environment variable TELEPHONE_SWITCHBOARD_PRIVET_KEY is missing.
-          """
+      raise """
+      environment variable TELEPHONE_SWITCHBOARD_PRIVET_KEY is missing.
+      """
 
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
@@ -110,9 +110,7 @@ if config_env() == :prod do
     database: System.get_env("DATABASE_PATH"),
     pool_size: 3
 
-  config :video_conference, :telephone_switchboard,
-    private_key: telephone_switchboard_private_key
-
+  config :video_conference, :telephone_switchboard, private_key: telephone_switchboard_private_key
 
   # ## SSL Support
   #

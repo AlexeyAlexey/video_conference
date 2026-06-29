@@ -38,6 +38,13 @@ defmodule VideoConferenceWeb.Router do
     post "/phone_book/add_phone", PhoneBookController, :add_phone
     delete "/phone_book/remove_phone", PhoneBookController, :remove_phone
     get "/phone_book/list", PhoneBookController, :list
+
+    get "/shared_link/list", SharedLinkController, :list
+    post "/shared_link/generate", SharedLinkController, :generate
+    post "/shared_link/enable_password", SharedLinkController, :enable_password
+    post "/shared_link/disable_password", SharedLinkController, :disable_password
+
+    post "/conference/shared_link/:link_id", ConferenceController, :shared_link
   end
 
   scope "/", VideoConferenceWeb do
