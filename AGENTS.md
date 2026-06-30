@@ -37,7 +37,7 @@ custom classes must fully style the input
 Controller routes must be placed in a scope that sets the `:require_authenticated_phone` plug:
 
     scope "/", AppWeb do
-      pipe_through [:browser, :require_authenticated_phone]
+      pipe_through [:api, :require_api_authentication]
 
       get "/", MyControllerThatRequiresAuth, :index
     end
