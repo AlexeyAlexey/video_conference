@@ -1,9 +1,133 @@
 This is a web application written using the Phoenix web framework.
 
+## Project Overview
+
+**App Name:** `video_conference`
+
+This is a video conferencing application that uses **HTTP/3 with WebTransport and WebCodecs** instead of WebRTC for real-time media streaming. The backend is a Phoenix API server, while the frontend handles video/audio encoding/decoding using browser APIs.
+
+### Key Technologies
+
+- **Backend:** Phoenix 1.8 (Elixir), SQLite3 via `ecto_sqlite3`, Bandit HTTP server
+- **Frontend:** A standalone application that communicates with the backend via REST APIs and channels, built with vite and vanilla js and Tailwind CSS.
+- **Real-time Communication:** HTTP/3 with WebTransport (streams and datagrams)
+- **Authentication:** Custom scope-based authentication with phone-based sessions
+
+### Frontend-Backend Communication
+
+The frontend is a standalone application that communicates with the backend via:
+
+1. **REST APIs** - JSON endpoints for user management, phone book, shared links, etc.
+   - Public routes: `/phones/register`, `/phones/log-in`, `/conference/public/*`
+   - Protected routes: `/phone_book/*`, `/shared_link/*` (require authentication)
+
+2. **Channels** - Real-time communication via Phoenix Channels and HTTP/3 WebTransport
+   - PhoneSocket - Phone-based authentication for channels
+   - GroupSocket - Room-based channels for video conferencing participants
+
+### Project Structure
+
+```
+lib/
+├── video_conference/          # Core contexts (business logic)
+│   ├── accounts/             # Phone authentication & user management
+│   ├── phone_books/          # Contact management
+│   ├── shared_links/         # Shared conference link generation
+│   └── telephone_switchboard/# Call routing logic
+└── video_conference_web/     # Web interface layer
+    ├── controllers/          # REST API endpoints (JSON)
+    ├── channels/             # WebSocket channels for real-time communication
+    ├── components/           # Phoenix components (LiveView, HEEx)
+    └── router.ex             # Route definitions
+
+assets/
+├── js/                       # Frontend JavaScript (WebCodecs, WebTransport)
+│   ├── group_socket.js       # HTTP/3 stream management
+│   ├── video_decoder.js      # Video decoding with WebCodecs
+│   ├── audio_decoder.js      # Audio decoding with WebCodecs
+│   └── current_participant_camera.js # Camera capture & encoding
+└── css/                      # Tailwind CSS styles
+
+test/
+├── support/
+│   ├── conn_case.ex          # Connection test base
+│   ├── data_case.ex          # Database test base
+│   └── fixtures/             # Test data fixtures
+```
+
 ## Project guidelines
 
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
+
+### Mix Aliases
+
+| Alias | Description |
+|-------|-------------|
+| `mix setup` | Install deps, create DB, run migrations, seed data, set up assets |
+| `mix precommit` | Compile (warnings as errors), unlock unused deps, format code, run tests |
+| `mix ecto.setup` | Create DB, run migrations, seed data |
+| `mix ecto.reset` | Drop DB and run `ecto.setup` |
+| `mix test` | Create DB, run migrations, then run tests |
+| `mix assets.setup` | Install Tailwind and ESBuild if missing |
+| `mix assets.build` | Build CSS (Tailwind) and JS (ESBuild) |
+| `mix assets.deploy` | Minify and deploy assets for production |
+
+### Environment Configuration
+
+- **Database:** SQLite3 (`ecto_sqlite3`)
+- **Server:** Bandit (Phoenix adapter)
+- **LiveView signing salt:** Configured in `config/config.exs`
+- **HTTP/3 Server:** (also known as stream server) External service configured via environment variables:
+  - `HTTP3_SERVER_HOST`
+  - `HTTP3_SERVER_PORT`
+  - `HTTP3_SERVER_CERT_HASH`
+
+### Authentication System
+
+This app uses a custom scope-based authentication system with two pipelines:
+
+| Pipeline | Purpose | Assign Key |
+|----------|---------|------------|
+| `:browser` | HTML pages | `@current_scope` (phone) |
+| `:api` | JSON API | `@current_scope` (phone) |
+
+**Key Authentication Concepts:**
+- **Scope:** Contains `current_scope.phone` with the authenticated phone record
+- **Token-based:** Auth tokens stored in `AccountAuthToken` and passed via headers/params
+- **Phone-based:** Authentication is by phone number, not traditional user accounts
+
+### Routes Organization
+
+#### Public Routes (no auth required)
+```elixir
+scope "/", VideoConferenceWeb do
+  pipe_through :api
+  post "/phones/register", PhoneRegistrationController, :register
+  post "/phones/log-in", PhoneSessionController, :log_in
+  post "/conference/public/shared_link/:link_id", ConferencePublicController, :shared_link
+  get "/conference/public/shared_link/info/:link_id", SharedLinkPublicController, :info
+end
+```
+
+#### Protected Routes (auth required)
+```elixir
+scope "/", VideoConferenceWeb do
+  pipe_through [:api, :require_api_authentication]
+  delete "/phones/log-out", PhoneSessionController, :log_out
+  post "/phone_book/add_phone", PhoneBookController, :add_phone
+  # ... other protected routes
+end
+```
+
+#### Browser Routes (HTML)
+```elixir
+scope "/", VideoConferenceWeb do
+  pipe_through :browser
+  get "/", PageController, :home
+end
+```
+
 ### Phoenix v1.8 guidelines
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content
@@ -14,8 +138,59 @@ This is a web application written using the Phoenix web framework.
 - Phoenix v1.8 moved the `<.flash_group>` component to the `Layouts` module. You are **forbidden** from calling `<.flash_group>` outside of the `layouts.ex` module
 - Out of the box, `core_components.ex` imports an `<.icon name="hero-x-mark" class="w-5 h-5"/>` component for for hero icons. **Always** use the `<.icon>` component for icons, **never** use `Heroicons` modules or similar
 - **Always** use the imported `<.input>` component for form inputs from `core_components.ex` when available. `<.input>` is imported and using it will will save steps and prevent errors
-- If you override the default input classes (`<.input class="myclass px-2 py-1 rounded-lg">)`) class with your own values, no default classes are inherited, so your
-custom classes must fully style the input
+- If you override the default input classes (`<.input class="myclass px-2 py-1 rounded-lg">)`) class with your own values, no default classes are inherited, so your custom classes must fully style the input
+
+### Testing Guidelines
+
+#### Test Case Hierarchy
+- **`DataCase`** - Base case for database tests (uses SQL sandbox)
+- **`ConnCase`** - For controller tests that need connections (extends DataCase)
+- **`ChannelCase`** - For Phoenix Channel tests
+
+All test cases use `ExUnit.CaseTemplate` with proper `using/1` and `setup/1` blocks.
+
+#### Fixtures
+Test fixtures are located in `test/support/fixtures/`:
+- `AccountsFixtures` - Phone account creation helpers
+- `PhoneBookFixtures` - Contact management helpers
+- `PhoneCallFixtures` - Phone call record helpers
+- `SharedLinksFixtures` - Shared link creation helpers
+
+Use fixtures to create test data consistently across tests.
+
+#### Testing Patterns
+
+**Controller Tests:**
+```elixir
+use VideoConferenceWeb.ConnCase
+import VideoConference.AccountsFixtures
+
+test "requires authentication", %{conn: conn} do
+  conn = post(conn, ~p"/protected/route")
+  assert json_response(conn, 401)
+end
+```
+
+**Channel Tests:**
+```elixir
+use VideoConferenceWeb.ChannelCase
+import Phoenix.ChannelTest
+
+test "assigns current_scope on connect", %{socket: socket} do
+  assert {:ok, _socket} = connect(PhoneSocket, %{}, 
+    connect_info: %{auth_token: valid_auth_token(phone)})
+end
+```
+
+**LiveView Tests:**
+- Use `Phoenix.LiveViewTest` module with `LazyHTML` for assertions
+- Always reference key element IDs in selectors
+- Test outcomes rather than implementation details
+
+#### Database Testing
+- SQL sandbox mode for test isolation (automatic)
+- Changes automatically rolled back after each test
+- Use `Repo.exists?/2` to verify database state
 
 <!-- phoenix-gen-auth-start -->
 ## Authentication
@@ -328,5 +503,130 @@ And **never** do this:
 
 - You are FORBIDDEN from accessing the changeset in the template as it will cause errors
 - **Never** use `<.form let={f} ...>` in the template, instead **always use `<.form for={@form} ...>`**, then drive all form references from the form assign as in `@form[:field]`. The UI should **always** be driven by a `to_form/2` assigned in the LiveView module that is derived from a changeset
+
+### HTTP/3 and WebTransport Guidelines
+
+This app uses **HTTP/3 with WebTransport** instead of WebRTC for real-time media streaming. Key files:
+
+- `assets/js/group_socket.js` - HTTP/3 stream management (connects to external http3_server)
+- `assets/js/video_decoder.js` - Video decoding with WebCodecs
+- `assets/js/audio_decoder.js` - Audio decoding with WebCodecs
+- `assets/js/current_participant_camera.js` - Camera capture & encoding
+- `assets/js/http3_stream_message_parser.js` - Message framing for stream data
+
+**Key Concepts:**
+- **HTTP/3** uses QUIC protocol over UDP to eliminate head-of-line blocking
+- **WebTransport** provides reliable streams and unreliable datagrams
+- **WebCodecs** gives low-level access to video/audio frames for full control
+
+**Stream Management:**
+- Use `Http3StreamMessageParser` to frame data chunks (see `decodeChunk/1`, `decodeAudioChunk/1`)
+- Each chunk needs a header to determine where it begins/ends in the continuous byte stream
+- Buffer size: typically 1MB (`1024 * 1024`) for video streams
+
+**Configuration:**
+HTTP/3 (stream server) server settings via environment variables:
+```elixir
+config :video_conference, :stream_server,
+    schema: "https",
+    host: http3_server_host,
+    port: http3_server_port
+```
+
+External HTTP/3 server (configured at runtime):
+- `HTTP3_SERVER_HOST` - Hostname of the HTTP/3 server
+- `HTTP3_SERVER_PORT` - Port (typically 4040)
+- `HTTP3_SERVER_CERT_HASH` - Certificate hash for secure connection
+
+**Frontend Integration:**
+- Always integrate custom JS hooks in `assets/js/app.js`
+- Never write embedded `<script>` tags in HEEx templates
+- Use `phx-hook="MyHook"` with `phx-update="ignore"` when hook manages its own DOM
+
+### Custom Authentication System
+
+This app uses a **scope-based authentication system** with phone-based sessions:
+
+#### Authentication Pipelines
+
+| Pipeline | Purpose | Assign Key |
+|----------|---------|------------|
+| `:browser` | HTML pages | `@current_scope` (phone) |
+| `:api` | JSON API | `@current_scope` (phone) |
+
+#### Key Concepts
+- **Scope:** Contains `current_scope.phone` with the authenticated phone record
+- **Token-based:** Auth tokens stored in `AccountAuthToken` and passed via headers/params
+- **Phone-based:** Authentication is by phone number, not traditional user accounts
+
+#### Router Scopes
+
+**Public Routes (no auth required):**
+```elixir
+scope "/", VideoConferenceWeb do
+  pipe_through :api
+  post "/phones/register", PhoneRegistrationController, :register
+  post "/phones/log-in", PhoneSessionController, :log_in
+end
+```
+
+**Protected Routes (auth required):**
+```elixir
+scope "/", VideoConferenceWeb do
+  pipe_through [:api, :require_api_authentication]
+  delete "/phones/log-out", PhoneSessionController, :log_out
+  # ... other protected routes
+end
+```
+
+#### Authentication Helpers
+
+- `fetch_current_scope_for_api` - Fetches scope for API routes
+- `redirect_if_phone_is_authenticated` - Redirects if already authenticated (for registration pages)
+- `put_user_token` - Generates unique user token per request
+
+**Important:** Always pass `current_scope.phone` to context modules when performing queries.
+
+### Project Structure
+
+```
+lib/
+├── video_conference/          # Core contexts (business logic)
+│   ├── accounts/             # Phone authentication & user management
+│   ├── phone_books/          # Contact management
+│   ├── shared_links/         # Shared conference link generation
+│   └── telephone_switchboard/# Call routing logic
+└── video_conference_web/     # Web interface layer
+    ├── controllers/          # REST API endpoints (JSON)
+    ├── channels/             # WebSocket channels for real-time communication
+    ├── components/           # Phoenix components (LiveView, HEEx)
+    └── router.ex             # Route definitions
+
+assets/
+├── js/                       # Frontend JavaScript (WebCodecs, WebTransport)
+│   ├── group_socket.js       # HTTP/3 stream management
+│   ├── video_decoder.js      # Video decoding with WebCodecs
+│   ├── audio_decoder.js      # Audio decoding with WebCodecs
+│   └── current_participant_camera.js # Camera capture & encoding
+└── css/                      # Tailwind CSS styles
+
+test/
+├── support/
+│   ├── conn_case.ex          # Connection test base
+│   ├── data_case.ex          # Database test base
+│   └── fixtures/             # Test data fixtures
+```
+
+### Key Conventions
+
+1. **Contexts:** Organize business logic by domain (Accounts, PhoneBooks, SharedLinks)
+2. **Scopes:** All public functions accept `Scope{phone: phone}` as first argument for filtering
+3. **Forms:** Use `<.form>` and `<.input>` from Phoenix.Component
+4. **Icons:** Use `<.icon name="hero-x-mark" />` (never Heroicons modules directly)
+5. **Flash messages:** Rendered via `Layouts.app/1` with `<.flash_group>`
+6. **Database:** SQLite3 via `ecto_sqlite3`, migration timestamps use `:utc_datetime`
+7. **HTTP Client:** Use `:req` library (not HTTPoison/Tesla)
+8. **Testing:** Use fixtures from `test/support/fixtures/` for consistent test data
+
 <!-- phoenix:liveview-end -->
 <!-- usage-rules-end -->
