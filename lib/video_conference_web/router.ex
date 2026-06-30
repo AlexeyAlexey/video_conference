@@ -29,6 +29,9 @@ defmodule VideoConferenceWeb.Router do
     # post "/log", LogController, :log
     post "/phones/register", PhoneRegistrationController, :register
     post "/phones/log-in", PhoneSessionController, :log_in
+
+    post "/conference/public/shared_link/:link_id", ConferencePublicController, :shared_link
+    get "/conference/public/shared_link/info/:link_id", SharedLinkPublicController, :info
   end
 
   scope "/", VideoConferenceWeb do
@@ -43,8 +46,6 @@ defmodule VideoConferenceWeb.Router do
     post "/shared_link/generate", SharedLinkController, :generate
     post "/shared_link/enable_password", SharedLinkController, :enable_password
     post "/shared_link/disable_password", SharedLinkController, :disable_password
-
-    post "/conference/shared_link/:link_id", ConferenceController, :shared_link
   end
 
   scope "/", VideoConferenceWeb do

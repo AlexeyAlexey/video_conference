@@ -1,4 +1,5 @@
 defmodule VideoConference.TelephoneSwitchboard.HostPublicKey do
+  # TODO implement
   @host_public_keys %{
     "local" => """
     -----BEGIN PUBLIC KEY-----

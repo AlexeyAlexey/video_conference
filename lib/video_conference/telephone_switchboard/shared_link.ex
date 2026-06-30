@@ -1,0 +1,2 @@
+defmodule VideoConference.TelephoneSwitchboard.SharedLink do
+end

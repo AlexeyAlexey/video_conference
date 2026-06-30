@@ -1,11 +1,11 @@
-defmodule VideoConference.PhoneCallsTest do
+defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
   use VideoConferenceWeb.ConnCase
 
-  import VideoConference.PhoneCallFixtures
+  import VideoConference.TelephoneSwitchboard.PhoneCallFixtures
 
-  alias VideoConference.PhoneCalls
+  alias VideoConference.TelephoneSwitchboard.PhoneCalls
 
-  test "get_current_income_calls" do
+  test "current_income_calls" do
     to = 123
 
     create_phone_call(%{
@@ -20,7 +20,7 @@ defmodule VideoConference.PhoneCallsTest do
       called_at: ~U[2026-06-01 08:08:25.747857Z]
     })
 
-    assert PhoneCalls.get_current_income_calls(to: to) == [
+    assert PhoneCalls.current_income_calls(to: to) == [
              %{from: 432, from_host_id: nil}
            ]
   end

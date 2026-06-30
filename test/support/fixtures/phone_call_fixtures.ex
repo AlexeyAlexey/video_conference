@@ -1,8 +1,8 @@
-defmodule VideoConference.PhoneCallFixtures do
+defmodule VideoConference.TelephoneSwitchboard.PhoneCallFixtures do
   # import Ecto.Query
   alias VideoConference.Repo
 
-  alias VideoConference.PhoneCalls.PhoneCall
+  alias VideoConference.TelephoneSwitchboard.PhoneCalls.PhoneCall
 
   def create_phone_call(attrs) when is_map(attrs) do
     {:ok, phone_call} =

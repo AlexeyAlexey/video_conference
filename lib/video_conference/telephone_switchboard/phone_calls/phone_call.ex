@@ -1,4 +1,4 @@
-defmodule VideoConference.PhoneCalls.PhoneCall do
+defmodule VideoConference.TelephoneSwitchboard.PhoneCalls.PhoneCall do
   use Ecto.Schema
   import Ecto.Changeset
 

@@ -2,13 +2,13 @@ defmodule VideoConference.TelephoneSwitchboard.AuthTokenTest do
   use VideoConferenceWeb.ConnCase
 
   alias VideoConference.TelephoneSwitchboard.AuthToken
-  alias VideoConference.TelephoneSwitchboard
+  alias VideoConference.TelephoneSwitchboard.ConnectionCredentials
 
   test "generate token and verify_token" do
     assert {:ok, token} =
              AuthToken.generate_token(%{"from" => 1234})
 
-    {:ok, public_key} = TelephoneSwitchboard.get_public_key_by_host("local")
+    {:ok, public_key} = ConnectionCredentials.get_public_key_by_host("local")
 
     assert {:ok,
             %{

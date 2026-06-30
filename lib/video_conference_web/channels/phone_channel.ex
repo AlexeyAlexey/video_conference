@@ -5,7 +5,6 @@ defmodule VideoConferenceWeb.PhoneChannel do
 
   alias VideoConferenceWeb.PhoneChannelPresenter, as: Presenter
   alias VideoConference.TelephoneSwitchboard
-  alias VideoConference.PhoneCalls
 
   # TODO add calls table to track calls (from, to, status (calling, rejected, not_picked_up, picked_up), initiated_at)
 
@@ -28,44 +27,24 @@ defmodule VideoConferenceWeb.PhoneChannel do
   end
 
   def handle_in("call", %{"to" => to}, socket) do
-    if current_phone_number(socket) == to do
-      {:reply, {:error, "You are trying to call yourself"}, socket}
-    else
-      PhoneCalls.call_to(%{
-        from: current_phone_number(socket),
-        to: to,
-        called_at: DateTime.utc_now()
-      })
+    TelephoneSwitchboard.connection_credentials(
+      from_host_id: "local",
+      from: current_phone_number(socket),
+      to_host_id: "local",
+      to: to,
+      direction: "outcome",
+      stream_type: ["audio", "video"]
+    )
+    |> case do
+      {:ok, credentials} ->
+        VideoConferenceWeb.Endpoint.broadcast!("phone:#{to}", "income_call", %{
+          "from" => current_phone_number(socket)
+        })
 
+        {:reply, {:ok, credentials |> Map.merge(%{"to" => to})}, socket}
 
-
-      params = %{
-        "from" => "local@#{current_phone_number(socket)}",
-        "to" => "local@#{to}",
-        "direction" => "outcome",
-        "host" => "local"
-      }
-
-      response =
-        TelephoneSwitchboard.get_connection_options_for(
-          "video",
-          "phone_call",
-          params
-        )
-        |> Map.merge(
-          TelephoneSwitchboard.get_connection_options_for(
-            "audio",
-            "phone_call",
-            params
-          )
-        )
-        |> Map.merge(%{"to" => to})
-
-      VideoConferenceWeb.Endpoint.broadcast!("phone:#{to}", "income_call", %{
-        "from" => current_phone_number(socket)
-      })
-
-      {:reply, {:ok, response}, socket}
+      {:error, "You are trying to call yourself" = error} ->
+        {:reply, {:error, error}, socket}
     end
   end
 
@@ -83,38 +62,26 @@ defmodule VideoConferenceWeb.PhoneChannel do
         %{"from" => from},
         socket
       ) do
-    if socket.assigns.current_phone_number == from do
-      {:noreply, socket}
-    else
-      params = %{
-        "from" => "local@#{from}",
-        "to" => "local@#{current_phone_number(socket)}",
-        "direction" => "income",
-        "host" => "local"
-      }
+    TelephoneSwitchboard.connection_credentials(
+      from_host_id: "local",
+      from: from,
+      to_host_id: "local",
+      to: current_phone_number(socket),
+      direction: "income",
+      stream_type: ["audio", "video"]
+    )
+    |> case do
+      {:ok, credentials} ->
+        {:reply, {:ok, credentials |> Map.merge(%{"from" => from})}, socket}
 
-      response =
-        TelephoneSwitchboard.get_connection_options_for(
-          "video",
-          "phone_call",
-          params
-        )
-        |> Map.merge(
-          TelephoneSwitchboard.get_connection_options_for(
-            "audio",
-            "phone_call",
-            params
-          )
-        )
-        |> Map.merge(%{"from" => from})
-
-      {:reply, {:ok, response}, socket}
+      {:error, "You are trying to call yourself"} ->
+        {:noreply, socket}
     end
   end
 
   def handle_info("after_joined", socket) do
     res =
-      PhoneCalls.get_current_income_calls(to: current_phone_number(socket))
+      TelephoneSwitchboard.current_income_calls(to: current_phone_number(socket))
       |> Presenter.current_income_calls()
 
     VideoConferenceWeb.Endpoint.broadcast!(
