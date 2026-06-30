@@ -13,5 +13,6 @@ defmodule VideoConference.Repo.Migrations.CreateSharedLinks do
     end
 
     create unique_index(:shared_links, [:phone_id, :link_id])
+    create index(:shared_links, [:link_id])
   end
 end

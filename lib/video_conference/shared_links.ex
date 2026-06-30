@@ -10,6 +10,14 @@ defmodule VideoConference.SharedLinks do
   alias VideoConference.Accounts.Scope
   alias VideoConference.Accounts.Phone
 
+  def one_by(link_id: link_id) do
+    Repo.one(from s in SharedLink, where: s.link_id == ^link_id)
+    |> case do
+      nil -> {:error, :not_found}
+      shared_link -> {:ok, shared_link}
+    end
+  end
+
   def one_by(%Scope{phone: %Phone{id: phone_id}}, link_id: link_id) do
     Repo.one(from s in SharedLink, where: s.phone_id == ^phone_id and s.link_id == ^link_id)
     |> case do
