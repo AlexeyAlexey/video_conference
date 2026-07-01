@@ -68,10 +68,22 @@ test/
 | `mix precommit` | Compile (warnings as errors), unlock unused deps, format code, run tests |
 | `mix ecto.setup` | Create DB, run migrations, seed data |
 | `mix ecto.reset` | Drop DB and run `ecto.setup` |
-| `mix test` | Create DB, run migrations, then run tests |
+| `mix test` | Create DB, run migrations, then run tests (use with `dotenv -e .env.test`) |
 | `mix assets.setup` | Install Tailwind and ESBuild if missing |
 | `mix assets.build` | Build CSS (Tailwind) and JS (ESBuild) |
 | `mix assets.deploy` | Minify and deploy assets for production |
+
+### Running the Application
+
+**Tests:**
+```bash
+dotenv -e .env.test mix test
+```
+
+**Development Server:**
+```bash
+dotenv -e .env iex -S mix phx.server
+```
 
 ### Environment Configuration
 
