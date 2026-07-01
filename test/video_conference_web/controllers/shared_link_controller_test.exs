@@ -2,12 +2,12 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
   use VideoConferenceWeb.ConnCase
 
   import VideoConference.AccountsFixtures
-  import VideoConference.SharedLinksFixtures
+  import VideoConference.TelephoneSwitchboard.SharedLinksFixtures
   import VideoConference.CustomCase
   import Ecto.Query, warn: false
 
   alias VideoConference.Repo
-  alias VideoConference.SharedLinks.SharedLink
+  alias VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink
 
   setup %{conn: conn} do
     phone =

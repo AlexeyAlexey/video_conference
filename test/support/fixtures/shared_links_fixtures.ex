@@ -1,8 +1,8 @@
-defmodule VideoConference.SharedLinksFixtures do
+defmodule VideoConference.TelephoneSwitchboard.SharedLinksFixtures do
   # import Ecto.Query
   alias VideoConference.Repo
 
-  alias VideoConference.SharedLinks.SharedLink
+  alias VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink
 
   def create_shared_link(attrs) when is_map(attrs) do
     opts = []
@@ -21,4 +21,7 @@ defmodule VideoConference.SharedLinksFixtures do
 
     shared_link
   end
+
+  def generate_shared_link_link_id, do: Ecto.UUID.generate()
+  def generate_shared_link_id, do: Enum.random(1..1_000_000)
 end

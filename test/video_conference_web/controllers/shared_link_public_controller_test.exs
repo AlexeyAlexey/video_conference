@@ -3,7 +3,7 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
 
   import VideoConference.AccountsFixtures
   import VideoConference.CustomCase
-  import VideoConference.SharedLinksFixtures
+  import VideoConference.TelephoneSwitchboard.SharedLinksFixtures
 
   setup %{conn: conn} do
     phone =

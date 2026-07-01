@@ -9,7 +9,6 @@ defmodule VideoConferenceWeb.ConferencePublicController do
     # TelephoneSwitchboard.connection_credentials(
     #   shared_link_id: link_id,
     #   password: password,
-    #   stream_type: "audio:video"
     # )
 
     # TODO return credentials to connect to http3 server

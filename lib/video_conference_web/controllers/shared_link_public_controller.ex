@@ -3,7 +3,7 @@ defmodule VideoConferenceWeb.SharedLinkPublicController do
 
   action_fallback VideoConferenceWeb.FallbackController
 
-  alias VideoConference.SharedLinks
+  alias VideoConference.TelephoneSwitchboard.SharedLinks
 
   def info(conn, %{"link_id" => link_id}) do
     SharedLinks.one_by(link_id: link_id)

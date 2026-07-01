@@ -1,14 +1,43 @@
-defmodule VideoConference.SharedLinks do
-  @moduledoc """
-  The Shared Link context.
-  """
-
+defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
   import Ecto.Query, warn: false
   alias VideoConference.Repo
 
-  alias VideoConference.SharedLinks.SharedLink
+  alias VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink
   alias VideoConference.Accounts.Scope
   alias VideoConference.Accounts.Phone
+
+  alias VideoConference.TelephoneSwitchboard.SharedLinks
+  alias VideoConference.TelephoneSwitchboard.ConnectionCredentials
+
+  def connection_credentials(
+        link_id: link_id,
+        password: password
+      )
+      when is_binary(link_id) and is_binary(password) do
+    with {:ok, shared_link} <- SharedLinks.one_by(link_id: link_id),
+         :ok <- check_password_if_required(shared_link, password) do
+      params = %{"conference_id" => link_id}
+
+      credentials =
+        ConnectionCredentials.for("video", "conference", params)
+        |> Map.merge(ConnectionCredentials.for("audio", "conference", params))
+
+      {:ok, credentials}
+    end
+  end
+
+  def connection_credentials(link_id: link_id) when is_binary(link_id) do
+    with {:ok, shared_link} <- SharedLinks.one_by(link_id: link_id),
+         :ok <- check_password_if_required(shared_link) do
+      params = %{"conference_id" => link_id}
+
+      credentials =
+        ConnectionCredentials.for("video", "conference", params)
+        |> Map.merge(ConnectionCredentials.for("audio", "conference", params))
+
+      {:ok, credentials}
+    end
+  end
 
   def one_by(link_id: link_id) do
     Repo.one(from s in SharedLink, where: s.link_id == ^link_id)
@@ -130,5 +159,24 @@ defmodule VideoConference.SharedLinks do
 
   defp generate_link_id(%Scope{phone: %Phone{id: phone_id}}) do
     :crypto.hash(:sha256, "#{phone_id}" <> Ecto.UUID.generate()) |> Base.encode16()
+  end
+
+  defp check_password_if_required(%SharedLink{} = shared_link, password)
+       when is_binary(password) do
+    if SharedLink.password_required(shared_link) do
+      if SharedLink.valid_password?(shared_link, password),
+        do: :ok,
+        else: {:error, "invalid password"}
+    else
+      :ok
+    end
+  end
+
+  defp check_password_if_required(%SharedLink{} = shared_link) do
+    if SharedLink.password_required(shared_link) do
+      {:error, "requires password"}
+    else
+      :ok
+    end
   end
 end

@@ -1,4 +1,4 @@
-defmodule VideoConference.SharedLinks.SharedLink do
+defmodule VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -75,4 +75,17 @@ defmodule VideoConference.SharedLinks.SharedLink do
       changeset
     end
   end
+
+  def valid_password?(%__MODULE__{hashed_password: hashed_password}, password)
+      when is_binary(hashed_password) and byte_size(password) > 0 do
+    Bcrypt.verify_pass(password, hashed_password)
+  end
+
+  def valid_password?(_, _) do
+    Bcrypt.no_user_verify()
+    false
+  end
+
+  def password_required(%__MODULE__{password_required: true}), do: true
+  def password_required(%__MODULE__{password_required: false}), do: false
 end

@@ -3,8 +3,8 @@ defmodule VideoConferenceWeb.SharedLinkController do
 
   action_fallback VideoConferenceWeb.FallbackController
 
-  alias VideoConference.SharedLinks
-  alias VideoConference.SharedLinks.SharedLink
+  alias VideoConference.TelephoneSwitchboard.SharedLinks
+  alias VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink
 
   def list(conn, _params) do
     shared_links = SharedLinks.list(conn.assigns.current_scope)

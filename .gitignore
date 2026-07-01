@@ -35,6 +35,8 @@ video_conference-*.tar
 npm-debug.log
 /assets/node_modules/
 
+.worktrees
 .env
 .env.test
+
 
