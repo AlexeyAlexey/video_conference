@@ -37,4 +37,8 @@ defmodule VideoConference.TelephoneSwitchboard do
   def current_income_calls(to: to) do
     PhoneCalls.current_income_calls(to: to)
   end
+
+  def shared_link_by(link_id: link_id) do
+    SharedLinks.one_by(link_id: link_id)
+  end
 end

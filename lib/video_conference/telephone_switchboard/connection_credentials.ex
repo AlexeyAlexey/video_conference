@@ -6,11 +6,12 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
     HostPublicKey.fetch(host)
   end
 
-  def for("video", "conference" = type, token_params)
+  def for("video" = stream_type, "conference" = type, token_params)
       when is_map(token_params) do
     token_params =
       token_params
       |> Map.put("type", type)
+      |> Map.put("stream_type", stream_type)
 
     %{
       "switchboard_video_uri" => video_uri(token_params),
@@ -18,11 +19,12 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
     }
   end
 
-  def for("audio", "conference" = type, token_params)
+  def for("audio" = stream_type, "conference" = type, token_params)
       when is_map(token_params) do
     token_params =
       token_params
       |> Map.put("type", type)
+      |> Map.put("stream_type", stream_type)
 
     %{
       "switchboard_audio_uri" => audio_uri(token_params),
@@ -30,11 +32,12 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
     }
   end
 
-  def for("video", "phone_call" = type, token_params)
+  def for("video" = stream_type, "phone_call" = type, token_params)
       when is_map(token_params) do
     token_params =
       token_params
       |> Map.put("type", type)
+      |> Map.put("stream_type", stream_type)
 
     %{
       "switchboard_video_uri" => video_uri(token_params),
@@ -42,11 +45,12 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
     }
   end
 
-  def for("audio", "phone_call" = type, token_params)
+  def for("audio" = stream_type, "phone_call" = type, token_params)
       when is_map(token_params) do
     token_params =
       token_params
       |> Map.put("type", type)
+      |> Map.put("stream_type", stream_type)
 
     %{
       "switchboard_audio_uri" => audio_uri(token_params),

@@ -28,4 +28,11 @@ defmodule VideoConferenceWeb.FallbackController do
     |> put_view(json: VideoConferenceWeb.ChangesetJSON)
     |> render(:error, changeset: changeset)
   end
+
+  def call(conn, {:error, error}) when is_binary(error) do
+    conn
+    |> put_status(:unprocessable_entity)
+    |> put_view(json: VideoConferenceWeb.ErrorJSON)
+    |> render(:"422", detail: error)
+  end
 end

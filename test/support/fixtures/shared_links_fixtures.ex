@@ -8,7 +8,7 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksFixtures do
     opts = []
 
     opts =
-      if attrs["password_required"] do
+      if attrs["password_required"] || attrs[:password_required] do
         Keyword.put(opts, :password_required, true)
       else
         opts
@@ -23,5 +23,5 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksFixtures do
   end
 
   def generate_shared_link_link_id, do: Ecto.UUID.generate()
-  def generate_shared_link_id, do: Enum.random(1..1_000_000)
+  def generate_shared_link_id, do: System.unique_integer([:positive, :monotonic])
 end

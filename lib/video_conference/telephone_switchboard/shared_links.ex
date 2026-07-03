@@ -16,26 +16,14 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
       when is_binary(link_id) and is_binary(password) do
     with {:ok, shared_link} <- SharedLinks.one_by(link_id: link_id),
          :ok <- check_password_if_required(shared_link, password) do
-      params = %{"conference_id" => link_id}
-
-      credentials =
-        ConnectionCredentials.for("video", "conference", params)
-        |> Map.merge(ConnectionCredentials.for("audio", "conference", params))
-
-      {:ok, credentials}
+      {:ok, provide_credentials(link_id: link_id)}
     end
   end
 
   def connection_credentials(link_id: link_id) when is_binary(link_id) do
     with {:ok, shared_link} <- SharedLinks.one_by(link_id: link_id),
          :ok <- check_password_if_required(shared_link) do
-      params = %{"conference_id" => link_id}
-
-      credentials =
-        ConnectionCredentials.for("video", "conference", params)
-        |> Map.merge(ConnectionCredentials.for("audio", "conference", params))
-
-      {:ok, credentials}
+      {:ok, provide_credentials(link_id: link_id)}
     end
   end
 
@@ -155,6 +143,20 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
       shared_link ->
         {:ok, shared_link}
     end
+  end
+
+  defp provide_credentials(link_id: link_id) do
+    # TODO add logic to manage participant_id
+    # it should be uniq in shared link (link id) scope
+    params = %{
+      "conference_id" => link_id,
+      "participant_id" => System.unique_integer([:positive, :monotonic]),
+      "host" => "local"
+    }
+
+    ConnectionCredentials.for("video", "conference", params)
+    |> Map.merge(ConnectionCredentials.for("audio", "conference", params))
+    |> Map.put("participant_id", params["participant_id"])
   end
 
   defp generate_link_id(%Scope{phone: %Phone{id: phone_id}}) do

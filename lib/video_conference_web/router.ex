@@ -30,8 +30,11 @@ defmodule VideoConferenceWeb.Router do
     post "/phones/register", PhoneRegistrationController, :register
     post "/phones/log-in", PhoneSessionController, :log_in
 
-    post "/conference/public/shared_link/:link_id", ConferencePublicController, :shared_link
     get "/conference/public/shared_link/info/:link_id", SharedLinkPublicController, :info
+
+    post "/conference/public/shared_link/conference_credentials/:link_id",
+         SharedLinkPublicController,
+         :conference_credentials
   end
 
   scope "/", VideoConferenceWeb do

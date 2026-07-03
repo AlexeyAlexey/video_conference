@@ -10,7 +10,7 @@ defmodule VideoConference.AccountsFixtures do
   alias VideoConference.Accounts.Scope
   alias VideoConference.Accounts.Phone
 
-  def unique_phone, do: Enum.random(0..1_000_000)
+  def unique_phone, do: System.unique_integer([:positive, :monotonic])
   def valid_phone_password, do: "hello world!"
 
   def create_phone_account(phone, password) when is_integer(phone) and is_binary(password) do

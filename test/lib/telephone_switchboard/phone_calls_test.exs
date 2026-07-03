@@ -3,6 +3,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
 
   import VideoConference.TelephoneSwitchboard.PhoneCallFixtures
 
+  alias VideoConference.TelephoneSwitchboard.AuthTokenTestHelper
   alias VideoConference.TelephoneSwitchboard.PhoneCalls
   alias VideoConference.TelephoneSwitchboard.PhoneCalls.PhoneCall
 
@@ -105,6 +106,56 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
       assert switchboard_audio_uri
       assert switchboard_video_server_cert_hash
       assert switchboard_video_uri
+    end
+
+    test "switchboard_video_uri and switchboard_audio_uri params" do
+      from = 123
+      to = 456
+
+      result =
+        PhoneCalls.connection_credentials(
+          from_host_id: "local",
+          from: from,
+          to_host_id: "local",
+          to: to,
+          direction: "outcome",
+          stream_type: ["audio", "video"]
+        )
+
+      assert {:ok, connection_options} = result
+      assert is_map(connection_options)
+
+      assert %{
+               "switchboard_audio_server_cert_hash" => _,
+               "switchboard_audio_uri" => switchboard_audio_uri,
+               "switchboard_video_server_cert_hash" => _,
+               "switchboard_video_uri" => switchboard_video_uri
+             } = connection_options
+
+      assert {:ok,
+              %{
+                "from" => p_from,
+                "to" => p_to,
+                "direction" => "outcome",
+                "host" => "local",
+                "type" => "phone_call",
+                "stream_type" => "audio"
+              }} =
+               AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_audio_uri)
+
+      assert {:ok,
+              %{
+                "from" => ^p_from,
+                "to" => ^p_to,
+                "direction" => "outcome",
+                "host" => "local",
+                "type" => "phone_call",
+                "stream_type" => "video"
+              }} =
+               AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_video_uri)
+
+      assert p_from == "local@#{from}"
+      assert p_to == "local@#{to}"
     end
 
     test "returns error when calling yourself" do

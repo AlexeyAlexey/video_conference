@@ -3,6 +3,7 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
 
   import VideoConference.AccountsFixtures
   import VideoConference.TelephoneSwitchboard.SharedLinksFixtures
+  alias VideoConference.TelephoneSwitchboard.AuthTokenTestHelper
   alias VideoConference.TelephoneSwitchboard.SharedLinks
   alias VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink
   alias VideoConference.Accounts.Scope
@@ -55,6 +56,55 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
 
       assert result["switchboard_video_server_cert_hash"]
       assert result["switchboard_audio_server_cert_hash"]
+    end
+
+    test "switchboard_video_uri and switchboard_audio_uri params" do
+      phone = create_phone_account(unique_phone())
+
+      link_id = generate_shared_link_link_id()
+
+      attrs = %{
+        "name" => "Test Link",
+        "link_id" => link_id,
+        "phone_id" => phone.id,
+        "password_required" => true,
+        "password" => "secret123"
+      }
+
+      shared_link = create_shared_link(attrs)
+
+      assert {:ok,
+              %{
+                "switchboard_video_uri" => switchboard_video_uri,
+                "switchboard_audio_uri" => switchboard_audio_uri,
+                "participant_id" => participant_id
+              }} =
+               SharedLinks.connection_credentials(
+                 link_id: shared_link.link_id,
+                 password: "secret123"
+               )
+
+      assert is_integer(participant_id)
+
+      assert {:ok,
+              %{
+                "conference_id" => ^link_id,
+                "type" => "conference",
+                "stream_type" => "video",
+                "participant_id" => ^participant_id,
+                "host" => "local"
+              }} =
+               AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_video_uri)
+
+      assert {:ok,
+              %{
+                "conference_id" => ^link_id,
+                "type" => "conference",
+                "stream_type" => "audio",
+                "participant_id" => ^participant_id,
+                "host" => "local"
+              }} =
+               AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_audio_uri)
     end
 
     test "returns error for non-existent shared link" do
