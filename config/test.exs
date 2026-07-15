@@ -55,11 +55,6 @@ config :joken, default_signer: System.get_env("JWT_SECRET")
 config :video_conference, :telephone_switchboard,
   private_key: System.get_env("TELEPHONE_SWITCHBOARD_PRIVET_KEY")
 
-config :video_conference, :frontend,
-  schema: System.get_env("FRONTEND_SCHEMA"),
-  host: System.get_env("FRONTEND_HOST"),
-  port: String.to_integer(System.get_env("FRONTEND_PORT") || "5173")
-
 config :video_conference, :stream_server,
   schema: "https",
   host: System.get_env("HTTP3_SERVER_HOST"),

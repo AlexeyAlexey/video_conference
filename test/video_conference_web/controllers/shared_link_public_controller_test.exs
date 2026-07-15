@@ -38,7 +38,6 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
 
       assert response["link_id"] == shared_link.link_id
       assert response["password_required"] == false
-      assert response["link"]
     end
 
     test "returns shared link info when not authenticated and link exists", %{
@@ -59,7 +58,6 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
 
       assert response["link_id"] == shared_link.link_id
       assert response["password_required"] == false
-      assert response["link"]
     end
 
     test "returns 404 when shared link does not exist", %{conn: conn} do

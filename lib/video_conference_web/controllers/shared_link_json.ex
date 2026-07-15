@@ -38,7 +38,7 @@ defmodule VideoConferenceWeb.SharedLinkJSON do
     %{
       id: id,
       name: name,
-      link: Utils.SharedLink.url_for(link_id: link_id),
+      link_id: link_id,
       password_required: password_required
     }
   end

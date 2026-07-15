@@ -20,10 +20,6 @@ if System.get_env("PHX_SERVER") do
   config :video_conference, VideoConferenceWeb.Endpoint, server: true
 end
 
-frontend_schema = System.get_env("FRONTEND_SCHEMA") || "http"
-frontend_host = System.get_env("FRONTEND_HOST") || "example.com"
-frontend_port = String.to_integer(System.get_env("FRONTEND_PORT") || "5173")
-
 http3_server_host = System.get_env("HTTP3_SERVER_HOST")
 http3_server_port = String.to_integer(System.get_env("HTTP3_SERVER_PORT") || "4433")
 
@@ -119,11 +115,6 @@ if config_env() == :prod do
 
   config :video_conference, :telephone_switchboard, private_key: telephone_switchboard_private_key
 
-  config :video_conference, :frontend,
-    schema: frontend_schema,
-    host: frontend_host,
-    port: frontend_port
-
   config :video_conference, :stream_server,
     schema: "https",
     host: http3_server_host,
@@ -181,11 +172,6 @@ if config_env() == :prod do
 end
 
 if config_env() == :dev do
-  config :video_conference, :frontend,
-    schema: frontend_schema,
-    host: frontend_host,
-    port: frontend_port
-
   config :video_conference, :stream_server,
     schema: "https",
     host: http3_server_host,

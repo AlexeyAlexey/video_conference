@@ -46,13 +46,13 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
                %{
                  "id" => id1,
                  "name" => "Shared Link",
-                 "link" => link1,
+                 "link_id" => link_id1,
                  "password_required" => true
                },
                %{
                  "id" => id2,
                  "name" => "Shared Link 2",
-                 "link" => link2,
+                 "link_id" => link_id2,
                  "password_required" => false
                }
              ] =
@@ -60,8 +60,8 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
 
       assert id1
       assert id2
-      assert link1
-      assert link2
+      assert link_id1
+      assert link_id2
     end
   end
 
@@ -74,10 +74,10 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
           "name" => "Shared Link"
         })
 
-      assert %{"id" => id, "name" => ^name, "link" => link, "password_required" => false} =
+      assert %{"id" => id, "name" => ^name, "link_id" => link_id, "password_required" => false} =
                json_response(conn, 200)
 
-      assert link
+      assert link_id
 
       assert Repo.exists?(SharedLink, id: id)
     end
@@ -91,17 +91,18 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
           "password" => "1234"
         })
 
-      assert %{"id" => id, "name" => ^name, "link" => link, "password_required" => true} =
+      assert %{"id" => id, "name" => ^name, "link_id" => link_id, "password_required" => true} =
                json_response(conn, 200)
 
-      assert link
+      assert link_id
 
       assert Repo.exists?(
-               from s in SharedLink, where: s.id == ^id and not is_nil(s.hashed_password)
+               from s in SharedLink,
+                 where: s.id == ^id and s.link_id == ^link_id and not is_nil(s.hashed_password)
              )
     end
 
-    test "link format", %{conn: conn} do
+    test "link id", %{conn: conn} do
       name = "Shared Link"
 
       conn =
@@ -109,14 +110,12 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
           "name" => "Shared Link"
         })
 
-      assert %{"id" => id, "name" => ^name, "link" => link, "password_required" => false} =
+      assert %{"id" => id, "name" => ^name, "link_id" => link_id, "password_required" => false} =
                json_response(conn, 200)
 
       shared_link = Repo.get!(SharedLink, id)
 
-      uri = URI.parse(link)
-
-      assert uri.path == "/conference/shared_link/#{shared_link.link_id}"
+      assert shared_link.link_id == link_id
     end
   end
 
