@@ -49,6 +49,7 @@ defmodule VideoConferenceWeb.Router do
     post "/shared_link/generate", SharedLinkController, :generate
     post "/shared_link/enable_password", SharedLinkController, :enable_password
     post "/shared_link/disable_password", SharedLinkController, :disable_password
+    delete "/shared_link/remove", SharedLinkController, :remove
   end
 
   scope "/", VideoConferenceWeb do

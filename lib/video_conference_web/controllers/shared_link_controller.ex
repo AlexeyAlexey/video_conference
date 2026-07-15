@@ -60,4 +60,17 @@ defmodule VideoConferenceWeb.SharedLinkController do
         error
     end
   end
+
+  def remove(conn, %{"id" => id}) do
+    SharedLinks.remove(conn.assigns.current_scope, id)
+    |> case do
+      {:ok, _shared_link} ->
+        conn
+        |> put_status(204)
+        |> json(nil)
+
+      error ->
+        error
+    end
+  end
 end

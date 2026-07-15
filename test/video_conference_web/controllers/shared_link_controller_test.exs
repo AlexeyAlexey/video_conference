@@ -199,4 +199,29 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
              )
     end
   end
+
+  describe "remove" do
+    test "successfully", %{conn: conn, phone: phone} do
+      shared_link =
+        create_shared_link(%{
+          "phone_id" => phone.id,
+          "name" => "Shared Link",
+          "link_id" => "aaaaaaaaaaaaaaa",
+          "password_required" => true,
+          "password" => "password"
+        })
+
+      conn =
+        delete(conn, ~p"/shared_link/remove", %{"id" => shared_link.id})
+
+      assert json_response(conn, 204) == nil
+
+      refute Repo.exists?(SharedLink, id: shared_link.id)
+    end
+
+    test "not found", %{conn: conn} do
+      assert delete(conn, ~p"/shared_link/remove", %{"id" => 2})
+             |> json_response(404) == %{"errors" => %{"detail" => "Not Found"}}
+    end
+  end
 end
