@@ -43,7 +43,7 @@ defmodule VideoConferenceWeb.SharedLinkController do
     SharedLinks.rename(conn.assigns.current_scope, %{"id" => id, "name" => name})
     |> case do
       {:ok, %SharedLink{} = shared_link} ->
-        render(conn, :shared_link, shared_link: shared_link)
+        render(conn, :rename, shared_link: shared_link)
 
       error ->
         error

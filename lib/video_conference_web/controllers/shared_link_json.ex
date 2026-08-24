@@ -29,6 +29,15 @@ defmodule VideoConferenceWeb.SharedLinkJSON do
     }
   end
 
+  def rename(%{
+        shared_link: %{id: id, name: name}
+      }) do
+    %{
+      id: id,
+      name: name
+    }
+  end
+
   defp shared_link_template(%{
          id: id,
          name: name,
