@@ -83,6 +83,25 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
     |> Repo.insert()
   end
 
+  def rename(%Scope{phone: %Phone{}} = scope, %{
+        "id" => id,
+        "name" => name
+      }) do
+    with {:ok, shared_link} <- find_for(scope, id: id) do
+      shared_link
+      |> SharedLink.rename_changeset(%{
+        "name" => name
+      })
+      |> Repo.update()
+    else
+      {:error, :not_found} ->
+        {:error, :not_found}
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
   def enable_password(%Scope{phone: %Phone{}} = scope, %{
         "id" => id,
         "password" => password

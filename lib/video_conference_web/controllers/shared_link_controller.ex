@@ -39,6 +39,17 @@ defmodule VideoConferenceWeb.SharedLinkController do
     end
   end
 
+  def rename(conn, %{"id" => id, "name" => name}) do
+    SharedLinks.rename(conn.assigns.current_scope, %{"id" => id, "name" => name})
+    |> case do
+      {:ok, %SharedLink{} = shared_link} ->
+        render(conn, :shared_link, shared_link: shared_link)
+
+      error ->
+        error
+    end
+  end
+
   def disable_password(conn, %{"id" => id}) do
     SharedLinks.disable_password(conn.assigns.current_scope, %{"id" => id})
     |> case do

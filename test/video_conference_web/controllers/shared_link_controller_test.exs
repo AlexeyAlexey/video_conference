@@ -119,6 +119,46 @@ defmodule VideoConferenceWeb.SharedLinkControllerTest do
     end
   end
 
+  describe "rename" do
+    setup %{conn: conn} do
+      phone =
+        create_phone_account(unique_phone(), generate_password())
+
+      shared_link =
+        create_shared_link(%{
+          "phone_id" => phone.id,
+          "name" => "Shared Link",
+          "password_required" => false
+        })
+
+      conn =
+        conn
+        |> put_req_header("accept", "application/json")
+        |> log_in(phone)
+
+      {:ok, conn: conn, shared_link: shared_link}
+    end
+
+    test "rename", %{conn: conn, shared_link: shared_link} do
+      assert shared_link.name == "Shared Link"
+      new_name = "Renamed Shared Link"
+
+      conn =
+        patch(conn, ~p"/shared_link/rename", %{
+          "id" => shared_link.id,
+          "name" => new_name
+        })
+
+      assert %{"id" => id, "name" => ^new_name} =
+               json_response(conn, 200)
+
+      assert Repo.exists?(
+               from s in SharedLink,
+                 where: s.id == ^id and s.name == ^new_name
+             )
+    end
+  end
+
   describe "enable password" do
     setup %{conn: conn} do
       phone =

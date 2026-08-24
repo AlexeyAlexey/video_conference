@@ -30,6 +30,16 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink do
     |> validate_password(opts)
   end
 
+  def rename_changeset(
+        %__MODULE__{} = shared_link,
+        attrs,
+        _opts \\ []
+      ) do
+    shared_link
+    |> cast(attrs, [:name])
+    |> validate_required([:name])
+  end
+
   def enable_password_changeset(
         %__MODULE__{} = shared_link,
         attrs,
