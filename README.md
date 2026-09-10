@@ -13,13 +13,6 @@ The WebCodecs API gives web developers low-level access to the individual frames
 
 The WebTransport API provides a modern update to WebSockets, transmitting data between client and server using HTTP/3 Transport.
 
-
-The main codebase is located in the following directory
-
-  ```video_conference/assets/js```
-
-Look at group_socket.js file
-
 I will try to add more information about different parts of that code
 
 This app uses [http3_server](https://github.com/AlexeyAlexey/http3_server) as Stream Server
