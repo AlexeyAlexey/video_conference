@@ -6,7 +6,8 @@ defmodule VideoConferenceWeb.PhoneRegistrationController do
   alias VideoConference.Accounts
   alias VideoConference.Accounts.Phone
 
-  def register(conn, %{"invitation_token" => "1234321"} = params) do
+  # def register(conn, %{"invitation_token" => "1234321"} = params) do
+  def register(conn, params) do
     with {:ok, %Phone{} = phone} <- Accounts.register_phone(params) do
       session_token =
         Accounts.generate_session_token(phone)
