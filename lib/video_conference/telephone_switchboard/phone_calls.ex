@@ -44,38 +44,22 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCalls do
              is_list(stream_type) and
              direction in @directions do
     with :ok <- check_if_not_call_himself(from, to) do
-      params = %{
-        "from" => "local@#{from}",
-        "to" => "local@#{to}",
-        "direction" => direction,
-        "host" => "local"
-      }
-
-      # host ("host" => "local") is used by stream server (http3 server) to find public key to validate tokens
-      connection_options =
-        if "audio" in stream_type do
-          ConnectionCredentials.for(
-            "audio",
-            "phone_call",
-            params
-          )
-        else
-          %{}
-        end
-
-      connection_options =
-        if "video" in stream_type do
-          connection_options
-          |> Map.merge(
+      connection_cred =
+        Enum.reduce(stream_type, %{}, fn type, acc ->
+          {:ok, cred} =
             ConnectionCredentials.for(
-              "video",
-              "phone_call",
-              params
+              connection_type: "phone_call",
+              stream_type: type,
+              from_host_id: "local",
+              from: from,
+              to_host_id: "local",
+              to: to,
+              direction: direction,
+              host: "local"
             )
-          )
-        else
-          connection_options
-        end
+
+          acc |> Map.merge(cred)
+        end)
 
       {:ok, _} =
         call_to(%{
@@ -84,7 +68,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCalls do
           called_at: DateTime.utc_now()
         })
 
-      {:ok, connection_options}
+      {:ok, connection_cred}
     end
   end
 

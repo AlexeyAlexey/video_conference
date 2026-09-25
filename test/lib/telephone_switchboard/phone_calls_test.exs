@@ -134,28 +134,43 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
 
       assert {:ok,
               %{
-                "from" => p_from,
-                "to" => p_to,
-                "direction" => "outcome",
+                "room_id" => audio_room_id,
+                "participant_id" => ^from,
                 "host" => "local",
-                "type" => "phone_call",
-                "stream_type" => "audio"
+                "custom_params" => %{
+                  "from" => ^from,
+                  "from_host_id" => "local",
+                  "to" => ^to,
+                  "to_host_id" => "local",
+                  "direction" => "outcome",
+                  "connection_type" => "phone_call",
+                  "stream_type" => "audio"
+                }
               }} =
                AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_audio_uri)
 
+      assert audio_room_id
+
       assert {:ok,
               %{
-                "from" => ^p_from,
-                "to" => ^p_to,
-                "direction" => "outcome",
+                "room_id" => video_room_id,
+                "participant_id" => ^from,
                 "host" => "local",
-                "type" => "phone_call",
-                "stream_type" => "video"
+                "custom_params" => %{
+                  "from" => ^from,
+                  "from_host_id" => "local",
+                  "to" => ^to,
+                  "to_host_id" => "local",
+                  "direction" => "outcome",
+                  "connection_type" => "phone_call",
+                  "stream_type" => "video"
+                }
               }} =
                AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_video_uri)
 
-      assert p_from == "local@#{from}"
-      assert p_to == "local@#{to}"
+      assert video_room_id
+
+      assert audio_room_id != video_room_id
     end
 
     test "returns error when calling yourself" do

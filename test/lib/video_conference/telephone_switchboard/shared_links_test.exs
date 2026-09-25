@@ -88,23 +88,31 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
 
       assert {:ok,
               %{
-                "conference_id" => ^link_id,
-                "type" => "conference",
-                "stream_type" => "video",
+                "room_id" => video_room_id,
                 "participant_id" => ^participant_id,
-                "host" => "local"
+                "host" => "local",
+                "custom_params" => %{
+                  "connection_type" => "conference",
+                  "stream_type" => "video"
+                }
               }} =
                AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_video_uri)
 
+      assert video_room_id
+
       assert {:ok,
               %{
-                "conference_id" => ^link_id,
-                "type" => "conference",
-                "stream_type" => "audio",
+                "room_id" => audio_room_id,
                 "participant_id" => ^participant_id,
-                "host" => "local"
+                "host" => "local",
+                "custom_params" => %{
+                  "connection_type" => "conference",
+                  "stream_type" => "audio"
+                }
               }} =
                AuthTokenTestHelper.parse_and_decode_token_from_uri(switchboard_audio_uri)
+
+      assert video_room_id != audio_room_id
     end
 
     test "returns error for non-existent shared link" do

@@ -58,4 +58,5 @@ config :video_conference, :telephone_switchboard,
 config :video_conference, :stream_server,
   schema: "https",
   host: System.get_env("HTTP3_SERVER_HOST"),
-  port: String.to_integer(System.get_env("HTTP3_SERVER_PORT") || "4433")
+  port: String.to_integer(System.get_env("HTTP3_SERVER_PORT") || "4433"),
+  cert_hash: System.get_env("HTTP3_SERVER_CERT_HASH")

@@ -1,5 +1,7 @@
 defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
   import Ecto.Query, warn: false
+  require Logger
+
   alias VideoConference.Repo
 
   alias VideoConference.TelephoneSwitchboard.SharedLinks.SharedLink
@@ -165,17 +167,34 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
   end
 
   defp provide_credentials(link_id: link_id) do
-    # TODO add logic to manage participant_id
-    # it should be uniq in shared link (link id) scope
-    params = %{
-      "conference_id" => link_id,
-      "participant_id" => System.unique_integer([:positive, :monotonic]),
-      "host" => "local"
-    }
+    participant_id = System.unique_integer([:positive, :monotonic])
+    host = "local"
 
-    ConnectionCredentials.for("video", "conference", params)
-    |> Map.merge(ConnectionCredentials.for("audio", "conference", params))
-    |> Map.put("participant_id", params["participant_id"])
+    with {:ok, video_connection_cred} <-
+           ConnectionCredentials.for(
+             connection_type: "conference",
+             stream_type: "video",
+             conference_id: link_id,
+             participant_id: participant_id,
+             host: host
+           ),
+         {:ok, audio_connection_cred} <-
+           ConnectionCredentials.for(
+             connection_type: "conference",
+             stream_type: "audio",
+             conference_id: link_id,
+             participant_id: participant_id,
+             host: host
+           ) do
+      video_connection_cred
+      |> Map.merge(audio_connection_cred)
+      |> Map.put("participant_id", participant_id)
+    else
+      {:error, "stream_type_format_is_wrong" = error} ->
+        Logger.error("Failed provide credentials #{inspect(error)}")
+
+        %{}
+    end
   end
 
   defp generate_link_id(%Scope{phone: %Phone{id: phone_id}}) do

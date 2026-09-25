@@ -22,6 +22,7 @@ end
 
 http3_server_host = System.get_env("HTTP3_SERVER_HOST")
 http3_server_port = String.to_integer(System.get_env("HTTP3_SERVER_PORT") || "4433")
+http3_server_cert_hash = System.get_env("HTTP3_SERVER_CERT_HASH")
 
 if config_env() == :prod do
   # database_url =
@@ -96,14 +97,14 @@ if config_env() == :prod do
         System.get_env("SSL_CERT_PATH") ||
           "app/certs/server.crt"
     ],
-    http: [
-      # Enable IPv6 and bind on all interfaces.
-      # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
-      # See the documentation on https://hexdocs.pm/bandit/Bandit.html#t:options/0
-      # for details about using IPv6 vs IPv4 and loopback vs public addresses.
-      ip: {0, 0, 0, 0, 0, 0, 0, 0},
-      port: 80
-    ],
+    # http: [
+    #   # Enable IPv6 and bind on all interfaces.
+    #   # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.
+    #   # See the documentation on https://hexdocs.pm/bandit/Bandit.html#t:options/0
+    #   # for details about using IPv6 vs IPv4 and loopback vs public addresses.
+    #   ip: {0, 0, 0, 0, 0, 0, 0, 0},
+    #   port: 80
+    # ],
     url: [host: host, port: port],
     secret_key_base: secret_key_base
 
@@ -118,7 +119,8 @@ if config_env() == :prod do
   config :video_conference, :stream_server,
     schema: "https",
     host: http3_server_host,
-    port: http3_server_port
+    port: http3_server_port,
+    cert_hash: http3_server_cert_hash
 
   # ## SSL Support
   #
@@ -175,5 +177,6 @@ if config_env() == :dev do
   config :video_conference, :stream_server,
     schema: "https",
     host: http3_server_host,
-    port: http3_server_port
+    port: http3_server_port,
+    cert_hash: http3_server_cert_hash
 end
