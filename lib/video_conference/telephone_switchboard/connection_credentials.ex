@@ -49,6 +49,8 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
         from: from,
         to_host_id: to_host_id,
         to: to,
+        phone_call_id: phone_call_id,
+        called_at: called_at,
         direction: direction,
         host: host
       )
@@ -56,7 +58,7 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
     participant_id = if direction == "outcome", do: from, else: to
 
     token_params = %{
-      room_id: "#{connection_type}/#{stream_type}/#{from}/#{to}",
+      room_id: "#{connection_type}/#{stream_type}/#{called_at}/#{phone_call_id}",
       participant_id: participant_id,
       host: host,
       custom_params: %{
@@ -66,7 +68,9 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
         "from" => from,
         "to_host_id" => to_host_id,
         "to" => to,
-        "direction" => direction
+        "direction" => direction,
+        "called_at" => called_at,
+        "phone_call_id" => phone_call_id
       }
     }
 

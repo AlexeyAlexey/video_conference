@@ -76,6 +76,9 @@ defmodule VideoConferenceWeb.PhoneChannel do
 
       {:error, "You are trying to call yourself"} ->
         {:noreply, socket}
+
+      {:error, "call_not_found" = error} ->
+        {:reply, {:error, error}, socket}
     end
   end
 

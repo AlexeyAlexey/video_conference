@@ -3,20 +3,24 @@ defmodule VideoConference.Repo.Migrations.CreatePhoneCalls do
 
   def change do
     create table(:phone_calls) do
-      add :from_host_id, :integer
-      add :from, :integer
-      add :to_host_id, :integer
-      add :to, :integer
-
+      # utc datetime in milliseconds
       add :called_at, :integer, null: false
-      add :responded_at, :integer
-      add :ended_at, :integer
+    end
+
+    create index(:phone_calls, [:called_at])
+
+    create table(:phone_call_participants) do
+      add :phone_call_id, :integer, null: false
+      add :phone_call_called_at, :integer, null: false
+      add :host_id, :integer
+      add :phone, :integer
+      # (income/outcome)
+      add :direction, :string
 
       timestamps()
     end
 
-    create index(:phone_calls, [:from])
-    create index(:phone_calls, [:to])
-    create index(:phone_calls, [:called_at])
+    create index(:phone_call_participants, [:phone_call_id, :phone_call_called_at])
+    create index(:phone_call_participants, [:phone, :direction])
   end
 end

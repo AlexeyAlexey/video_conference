@@ -3,6 +3,7 @@ defmodule VideoConferenceWeb.PhoneChannelTest do
 
   import VideoConference.CustomCase
   import VideoConference.AccountsFixtures
+  import VideoConference.TelephoneSwitchboard.PhoneCallFixtures
 
   alias VideoConferenceWeb.PhoneSocket
   alias VideoConferenceWeb.PhoneChannel
@@ -129,6 +130,8 @@ defmodule VideoConferenceWeb.PhoneChannelTest do
       destination_phone = create_phone_account(54321)
       from = 1234
       to = 54321
+
+      create_phone_call(%{from: from, to: to, called_at: DateTime.utc_now()})
 
       {:ok, socket} =
         connect(PhoneSocket, %{},

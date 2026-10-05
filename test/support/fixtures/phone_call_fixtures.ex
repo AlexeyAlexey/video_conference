@@ -1,14 +1,12 @@
 defmodule VideoConference.TelephoneSwitchboard.PhoneCallFixtures do
   # import Ecto.Query
-  alias VideoConference.Repo
-
-  alias VideoConference.TelephoneSwitchboard.PhoneCalls.PhoneCall
+  alias VideoConference.TelephoneSwitchboard.PhoneCalls
 
   def create_phone_call(attrs) when is_map(attrs) do
     {:ok, phone_call} =
-      %PhoneCall{}
-      |> PhoneCall.changeset(attrs)
-      |> Repo.insert()
+      attrs
+      |> Map.take([:from, :from_host_id, :to, :to_host_id, :called_at])
+      |> PhoneCalls.call_to()
 
     phone_call
   end
