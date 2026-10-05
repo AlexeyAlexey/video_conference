@@ -1,93 +1,93 @@
 # VideoConference
 
-It was interesting to explore and test various libraries, as well as different approaches to implementing a video conferencing solution without using WebRTC.
+An experiment in building video conferencing **without WebRTC**, using:
 
-I decided to use 
+- [WebCodecs](https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API) — low-level access to individual video frames and audio chunks, giving full control over how media is processed (e.g. editors, video conferencing).
+- [WebTransport](https://developer.mozilla.org/en-US/docs/Web/API/WebTransport_API) — a modern alternative to WebSockets, transmitting data between client and server over HTTP/3.
 
-  - [WebCodecs](https://developer.mozilla.org/en-US/docs/Web/API/WebCodecs_API)
-  - [WebTransport](https://developer.mozilla.org/en-US/docs/Web/API/WebTransport_API)
+## Architecture
 
-
-The WebCodecs API gives web developers low-level access to the individual frames of a video stream and chunks of audio. It is useful for web applications that require full control over the way media is processed. For example, video or audio editors, and video conferencing.
-
-
-The WebTransport API provides a modern update to WebSockets, transmitting data between client and server using HTTP/3 Transport.
-
-I will try to add more information about different parts of that code
-
-This app uses [http3_server](https://github.com/AlexeyAlexey/http3_server) as Stream Server
+| Component | Repository / Role |
+|-----------|-------------------|
+| Backend (this repo) | Phoenix 1.8 API + Channels (phone auth, phone book, shared links, call signaling). SQLite via `ecto_sqlite3`, Bandit HTTP server |
+| Stream server | [http3_server](https://github.com/AlexeyAlexey/http3_server) — HTTP/3 (WebTransport) media relay |
+| Frontend | [video_conference_vite](https://github.com/AlexeyAlexey/video_conference_vite) — Vite + vanilla JS app using WebCodecs/WebTransport |
+| All-in-one setup | [videoconference_docker_compose](https://github.com/AlexeyAlexey/videoconference_docker_compose) — runs all three apps together |
 
 ## HTTP/3
 
 HTTP/3 uses the QUIC protocol over UDP to eliminate head-of-line blocking, providing better performance on unstable networks and reducing latency.
 
-
 It enables reliable transport via streams and unreliable transport via UDP-like datagrams.
 
-I use a stream here, but datagrams could be used for the video stream, while a stream is better for the voice stream.
+The app currently uses streams, but datagrams could be used for video while a stream is better suited for audio. The way data packets are managed needs to be revised to support datagrams.
 
-The way we manage the data packets we send needs to be revised to support datagrams.
+When a stream is opened and chunks of video are sent through it, the receiving side gets a continuous stream of bytes, so a way to determine where each chunk begins and ends is needed. Look at [video_conference_vite](https://github.com/AlexeyAlexey/video_conference_vite) for an example implementation.
 
-When we open a stream and send chunks of video through it, the receiving side gets a continuous stream of bytes, so we need a way to determine where each chunk begins and ends.
+### Datagrams
 
-look at
+If we use datagrams, we need to account for ordering and size limitations — each packet cannot exceed a certain maximum size. To work within these constraints, each chunk would be split into smaller parts and reassembled on the receiving side.
 
-(group_socket.js file)
-```
-decodeChunk(payload) 
-```
+## Development setup
 
-(group_socket.js file)
-```
-decodeAudioChunk(payload) 
-```
+### Prerequisites
 
-(current_participant_camera.js file)
-```
-#encodeChunk(chunk)
+```bash
+sudo apt update
+sudo apt install dotenv-cli
 ```
 
-(http3_stream_message_parser file)
+### Environment variables
+
+Copy `.env.example` to `.env` and `.env.test.example` to `.env.test`, then adjust the values.
+
+| Variable | Description |
+|----------|-------------|
+| `MIX_ENV` | Mix environment (`dev`/`test`) |
+| `PHX_HOST` | Hostname used for URL generation |
+| `PHX_SERVER` | Set to `true` to start the server in releases |
+| `PORT` | HTTP port (default `4000`) |
+| `DATABASE_PATH` | Path to the SQLite database file |
+| `SECRET_KEY_BASE` | Phoenix secret (64+ chars, generate with `mix phx.gen.secret`) |
+| `JWT_SECRET` | Secret used by Joken for auth tokens |
+| `TELEPHONE_SWITCHBOARD_PRIVET_KEY` | RSA private key (PEM) used to sign stream-server auth tokens |
+| `HTTP3_SERVER_HOST` | Stream server host |
+| `HTTP3_SERVER_PORT` | Stream server port (default `4433`) |
+| `HTTP3_SERVER_CERT_HASH` | SHA-256 hash of the stream server certificate — required when it uses a self-signed cert |
+| `SSL_KEY_PATH` / `SSL_CERT_PATH` | TLS key/cert paths |
+
+### Running
+
+```bash
+dotenv -e .env iex -S mix phx.server
 ```
- class Http3StreamMessageParser
+
+### Tests
+
+```bash
+dotenv -e .env.test mix test
 ```
 
-```js
-const http3ServerStreamVideoReaderStream = http3ServerStream.readable.pipeThrough(
-      new TransformStream(new Http3StreamMessageParser(1024 * 1024)) // 1MB buffer
-    );
+### Other useful commands
+
+```bash
+mix setup        # install deps, create DB, run migrations, seed, build assets
+mix ecto.reset   # drop DB and run ecto.setup
+mix precommit    # compile (warnings as errors), format, run tests
 ```
 
+## Docker
 
-# HTTP3 SERVER
-
-It is a service that supports http/3 protocol
-
-[http3 server](https://github.com/AlexeyAlexey/http3_server)
-
-
-
-
-#### datagrams
-
-If we use datagrams, we need to account for ordering and size limitations—each packet cannot exceed a certain maximum size. To work within these constraints, we would split each chunk into smaller parts and then reassemble them on the receiving side.
-
-
-# Frontend
-
-[Video Conference vite](https://github.com/AlexeyAlexey/video_conference_vite)
-
-# Docker
+### Build
 
 ```bash
 docker build -t video_conference .
-
 ```
 
-# with d
+### Run in detached mode
 
 ```bash
-docker run  -d \
+docker run -d \
   --name video_conference \
   -p 4000:4000 -p 4040:4040 \
   -v "/path/to/certs/folder/on/host/machine/certs:/app/certs:ro" \
@@ -99,12 +99,12 @@ docker run  -d \
   -e SSL_KEY_PATH=/app/certs/server.key \
   -e SSL_CERT_PATH=/app/certs/server.crt \
   video_conference
-
 ```
 
-# without d
+### Run in foreground
+
 ```bash
-docker run  --name video_conference \
+docker run --name video_conference \
   -p 4000:4000 -p 4040:4040 \
   -v "/path/to/certs/folder/on/host/machine/certs:/app/certs:ro" \
   -e PHX_SERVER=true \
@@ -118,23 +118,22 @@ docker run  --name video_conference \
   -e SSL_CERT_PATH=/app/certs/server.crt \
   -e HTTP3_SERVER_CERT_HASH=380f661e9e24c0b9bcb2d760302e8290417fafa3227cb967f41ddd5a7a9ac5bb \
   video_conference
-
 ```
 
+Notes:
 
-SECRET_KEY_BASE 64 length  (```mix phx.gen.secret```)
+- `SECRET_KEY_BASE` must be 64 characters long (`mix phx.gen.secret`)
+- `HTTP3_SERVER_CERT_HASH` is required if a self-signed certificate is used
 
+### Moving an image to another machine
 
-HTTP3_SERVER_CERT_HASH - If self signed cert is used, It is required
-
-
-You can use the following commands to archive an copy an image to another computer/server
+Archive the image:
 
 ```bash
 docker save -o video_conference.tar video_conference:latest
 ```
 
-You can unarchive the image and to run it on another computer/server
+Load and run it on the target machine:
 
 ```bash
 docker load -i video_conference.tar
@@ -142,55 +141,23 @@ docker load -i video_conference.tar
 docker run -d -p 4000:4000 -p 4040:4040 video_conference
 ```
 
-[requirements](https://hexdocs.pm/mix/Mix.Tasks.Release.html#module-requirements)
+See [release requirements](https://hexdocs.pm/mix/Mix.Tasks.Release.html#module-requirements) for the target architecture/vendor/ABI compatibility notes.
 
-```
-    Target architecture (for example, x86_64 or ARM)
-    Target vendor + operating system (for example, Windows, Linux, or Darwin/macOS)
-    Target ABI (for example, musl or gnu)
-```
+## Deployment
 
+### Copying a release out of a container
 
-# Setting up dev env
-
-
-```bash
-sudo apt update
-sudo apt install dotenv-cli
-```
-
-Dev env
-
-```bash
-dotenv -e .env iex -S mix phx.server
-```
-
-Test env
-
-```bash
-dotenv -e .env.test mix test
-```
-
-**.env** look at .env.example file
-**.env.test** look at .env.test.example file
-
-# Copying release to a host machine 
-
-The ```docker container``` create (or shorthand: docker create) command creates a new container from the specified image, without starting it.
-
+`docker create` creates a container from an image without starting it:
 
 ```bash
 docker create --name temp-video_conference video_conference
 
 docker cp temp-video_conference:/app /path/to/release/folder
-```
 
-```bash
 docker rm temp-video_conference
 ```
 
-
-You can use the following command to archive a release
+Archive the release:
 
 ```bash
 cd /path/to/release/folder
@@ -198,48 +165,40 @@ cd /path/to/release/folder
 tar -czvf video_conference.tar.gz ./app
 ```
 
-# Deploying to remote server
+### Deploying to a remote server
 
-If you want to deploy it to remote server you can use the following approach.
-If you want to use this approach you should read more what directory should be used what system users should be used and what permissions they should be have and what folder permissions should be.
+A quick example — read up on which directory, system users, and file permissions are appropriate before using this in production.
 
-The following example is a quick example 
-
-Coping to remote server
+Copy the archive to the remote server:
 
 ```bash
-scp ./video_conference.tar.gz roor@remote_ip:/path/to/destination/
+scp ./video_conference.tar.gz root@remote_ip:/path/to/destination/
 ```
 
-```bash 
+```bash
 ssh user@remote_host "mkdir -p /path/to/directory"
 ```
 
-decompress on remote server
+Decompress on the remote server:
+
 ```bash
 tar -xvf video_conference.tar.gz
 ```
 
-
-## Adding Service
+### systemd service
 
 ```bash
 cd /etc/systemd/system/
-```
-
-```bash
 nano video_conference.service
 ```
 
-
-
-```                                                                  
+```ini
 [Unit]
 Description=Video conference app
 
 [Service]
 Type=simple
-User=root  
+User=root
 WorkingDirectory=/home/video_conference/app
 ExecStart=/home/video_conference/app/bin/video_conference start
 ExecStop=/home/video_conference/app/bin/video_conference stop
@@ -249,73 +208,56 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=video_conference
 
-
 [Install]
 WantedBy=multi-user.target
 ```
 
-You can read more parameters in 
+More parameters: [execution environment configuration](https://manpages.debian.org/trixie/systemd/systemd.exec.5.en.html)
 
-[Execution environment configuration](https://manpages.debian.org/trixie/systemd/systemd.exec.5.en.html)
+`EnvironmentFile` is used to set environment variables — `/home/env/video_conference`:
 
-
-
-I use EnvironmentFile to set up environment variable
-
-/home/env/video_conference
-```
+```bash
 PHX_SERVER=true
 PHX_HOST="your IP"
 PORT=4040
-JWT_SECRET="BFH5WS/JXiNWFcNNHRrBxAm+yczW/kzn9yqfvtoITi3GHiyxDlGoHEqj1sQ7wULe"
-SECRET_KEY_BASE="3ekUXBcKioR/Alnrm+RSl6c1Rf0kqBdLvjrnlPYqrTWSObL4/p7PJYt5v+X/du5o"
+JWT_SECRET="generate_a_random_secret"
+SECRET_KEY_BASE="generate_with_mix_phx_gen_secret"
 HTTP3_SERVER_HOST="http3 server IP"
 HTTP3_SERVER_PORT=4433
 SSL_KEY_PATH=/home/certs/server.key
 SSL_CERT_PATH=/home/certs/server.crt
-HTTP3_SERVER_CERT_HASH=11359926719aa95366099e87baefd7c27f6046b121aab42969702bd1eb9b8063
+HTTP3_SERVER_CERT_HASH=your_stream_server_cert_sha256_hash
 ```
 
-Set ownership to root
+Set ownership and permissions:
+
 ```bash
 sudo chown root:root video_conference.service
-```
-
-# Set permissions to 644
-```bash
 sudo chmod 644 video_conference.service
 ```
 
+Apply changes and manage the service:
+
 ```bash
-# Apply changes to systemd
 sudo systemctl daemon-reload
-```
 
-
-
-```bash
 systemctl start video_conference
-
 systemctl stop video_conference
-
 systemctl restart video_conference
-
 systemctl status video_conference
-
-
 systemctl enable video_conference
 ```
 
+## Certificates
 
-## Self signed certificate (http/3 requires certificate)
-
-Creating a directory for certificates (You should read more where to save a certs and about permissions)
+HTTP/3 requires a certificate. Create a directory for certificates (read up on where to store certs and the right permissions):
 
 ```bash
 mkdir -p /home/certs
 ```
 
-self signed certificate example
+Self-signed certificate example:
+
 ```bash
 openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout server.key \
   -x509 -days 13 -out server.crt \
@@ -323,57 +265,67 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout serv
   -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:10.42.0.1"
 ```
 
-If you use self signed certificate. A hash is required for HTTP3_SERVER_CERT_HASH variable
+If a self-signed certificate is used, its SHA-256 hash is required for the `HTTP3_SERVER_CERT_HASH` variable:
+
 ```bash
 openssl x509 -in server.crt -outform DER | openssl dgst -sha256 -hex
 ```
 
-# Logs
+### Switchboard key pair
 
-if you use
+The backend signs stream-server auth tokens (JWT, RS256) with an RSA key pair. Generate it with:
+
+```bash
+openssl genrsa -out private_key.pem 2048
+openssl rsa -in private_key.pem -outform PEM -pubout -out public_key.pem
 ```
+
+Set `TELEPHONE_SWITCHBOARD_PRIVET_KEY` to the contents of `private_key.pem`.
+
+## Logs
+
+If the service is configured with:
+
+```ini
 StandardOutput=journal
 StandardError=journal
 ```
 
-You can use the following command to view the app logs
+view the app logs with:
+
 ```bash
 journalctl -fu video_conference.service
 ```
 
-## Log rotation
+### Log rotation
 
-if you use
+If the service uses:
 
-```
+```ini
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=video_conference
 ```
 
-You can use logrotate and rsyslog
+you can use `logrotate` and `rsyslog`.
 
+## Deploy scripts
 
-# Added bash scrips to deploy the app to remote server
-
-Added a couple of simple bash scripts (look at deploys folder)
-
-It is required to do the script executable
+A couple of simple bash scripts live in the `deploys` folder. Make them executable:
 
 ```bash
 chmod +x ./gen_release.sh
 chmod +x ./copy_to_remote.sh
 chmod +x ./switch_to_release.sh
 ```
-  
-  
-  to generate a release to local folder
+
+Generate a release into a local folder:
 
 ```bash
 ./gen_release.sh "/absolute/path/to/local/folder"
 ```
 
-  to copy a release to remote server
+Copy a release to a remote server:
 
 ```bash
 ./copy_to_remote.sh remote_user remote_host local_release_dir release_name remote_release_dir
@@ -381,14 +333,9 @@ chmod +x ./switch_to_release.sh
 ./copy_to_remote.sh root "xx.xx.xx.xx" "/absolute/path/to/local/folder/with/release" "20260428_184535" "/absolute/path/to/folder/on/remote/server"
 ```
 
-  to switch from one to another on on remote server
+Switch releases on the remote server:
 
-```bash 
+```bash
 ./switch_to_release.sh remote_user remote_host release
 ./switch_to_release.sh root "xx.xx.xx.xx" 20260428_184535
 ```
-
-
-openssl genrsa -out private_key.pem 2048
-
-openssl rsa -in private_key.pem -outform PEM -pubout -out public_key.pem
