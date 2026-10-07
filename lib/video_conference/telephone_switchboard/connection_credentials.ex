@@ -1,6 +1,5 @@
-# TODO add tests
 defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
-  @stream_type ["video", "audio"]
+  @stream_type ["video", "audio", "event"]
 
   alias VideoConference.TelephoneSwitchboard.HostPublicKey
   alias VideoConference.TelephoneSwitchboard.AuthToken
@@ -20,6 +19,7 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
     token_params = %{
       room_id: "#{connection_type}/#{stream_type}/#{conference_id}",
       participant_id: participant_id,
+      stream_type: stream_type,
       host: host,
       custom_params: %{
         "connection_type" => connection_type,
@@ -27,18 +27,30 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
       }
     }
 
-    if stream_type == "video" do
-      {:ok,
-       %{
-         "switchboard_video_uri" => video_uri(token_params),
-         "switchboard_video_server_cert_hash" => stream_server_hash()
-       }}
-    else
-      {:ok,
-       %{
-         "switchboard_audio_uri" => audio_uri(token_params),
-         "switchboard_audio_server_cert_hash" => stream_server_hash()
-       }}
+    case stream_type do
+      "video" ->
+        {:ok,
+         %{
+           "switchboard_video_uri" => video_uri(token_params),
+           "switchboard_video_server_cert_hash" => stream_server_hash()
+         }}
+
+      "audio" ->
+        {:ok,
+         %{
+           "switchboard_audio_uri" => audio_uri(token_params),
+           "switchboard_audio_server_cert_hash" => stream_server_hash()
+         }}
+
+      "event" ->
+        {:ok,
+         %{
+           "switchboard_event_uri" => event_uri(token_params),
+           "switchboard_event_server_cert_hash" => stream_server_hash()
+         }}
+
+      _ ->
+        {:error, "Invalid stream type"}
     end
   end
 
@@ -61,6 +73,7 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
       room_id: "#{connection_type}/#{stream_type}/#{called_at}/#{phone_call_id}",
       participant_id: participant_id,
       host: host,
+      stream_type: stream_type,
       custom_params: %{
         "connection_type" => connection_type,
         "stream_type" => stream_type,
@@ -74,18 +87,30 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
       }
     }
 
-    if stream_type == "video" do
-      {:ok,
-       %{
-         "switchboard_video_uri" => video_uri(token_params),
-         "switchboard_video_server_cert_hash" => stream_server_hash()
-       }}
-    else
-      {:ok,
-       %{
-         "switchboard_audio_uri" => audio_uri(token_params),
-         "switchboard_audio_server_cert_hash" => stream_server_hash()
-       }}
+    case stream_type do
+      "video" ->
+        {:ok,
+         %{
+           "switchboard_video_uri" => video_uri(token_params),
+           "switchboard_video_server_cert_hash" => stream_server_hash()
+         }}
+
+      "audio" ->
+        {:ok,
+         %{
+           "switchboard_audio_uri" => audio_uri(token_params),
+           "switchboard_audio_server_cert_hash" => stream_server_hash()
+         }}
+
+      "event" ->
+        {:ok,
+         %{
+           "switchboard_event_uri" => event_uri(token_params),
+           "switchboard_event_server_cert_hash" => stream_server_hash()
+         }}
+
+      _ ->
+        {:error, "Invalid stream type"}
     end
   end
 
@@ -111,6 +136,10 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
 
   defp audio_uri(token_params) do
     "#{uri()}/audio?auth_token=#{switchboard_auth_token(token_params)}"
+  end
+
+  defp event_uri(token_params) do
+    "#{uri()}/event?auth_token=#{switchboard_auth_token(token_params)}"
   end
 
   defp uri, do: "https://#{host()}:#{port()}"

@@ -91,15 +91,15 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCalls do
         to_host_id: "local",
         to: to,
         direction: direction,
-        stream_type: stream_type
+        stream_types: stream_types
       )
       when is_integer(from) and is_integer(to) and direction in @directions and
-             is_list(stream_type) and
+             is_list(stream_types) and
              direction in @directions do
     with :ok <- check_if_not_call_himself(from, to),
          {:ok, phone_call} <- fetch_or_create_call(direction, from, to) do
       connection_cred =
-        Enum.reduce(stream_type, %{}, fn type, acc ->
+        Enum.reduce(stream_types, %{}, fn type, acc ->
           {:ok, cred} =
             ConnectionCredentials.for(
               connection_type: "phone_call",

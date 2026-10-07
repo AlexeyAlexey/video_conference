@@ -96,7 +96,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: 456,
           direction: "outcome",
-          stream_type: ["audio", "video"]
+          stream_types: ["audio", "video", "event"]
         )
 
       assert {:ok, connection_options} = result
@@ -106,13 +106,15 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
                "switchboard_audio_server_cert_hash" => switchboard_audio_server_cert_hash,
                "switchboard_audio_uri" => switchboard_audio_uri,
                "switchboard_video_server_cert_hash" => switchboard_video_server_cert_hash,
-               "switchboard_video_uri" => switchboard_video_uri
+               "switchboard_video_uri" => switchboard_video_uri,
+               "switchboard_event_uri" => switchboard_event_uri
              } = connection_options
 
       assert switchboard_audio_server_cert_hash
       assert switchboard_audio_uri
       assert switchboard_video_server_cert_hash
       assert switchboard_video_uri
+      assert switchboard_event_uri
     end
 
     test "switchboard_video_uri and switchboard_audio_uri params" do
@@ -126,7 +128,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: to,
           direction: "outcome",
-          stream_type: ["audio", "video"]
+          stream_types: ["audio", "video"]
         )
 
       assert {:ok, connection_options} = result
@@ -197,7 +199,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: to,
           direction: "outcome",
-          stream_type: ["video"]
+          stream_types: ["video"]
         )
 
       {:ok, income_options} =
@@ -207,7 +209,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: to,
           direction: "income",
-          stream_type: ["video"]
+          stream_types: ["video"]
         )
 
       assert {:ok, %{"room_id" => outcome_room_id, "participant_id" => ^from}} =
@@ -231,7 +233,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: 456,
           direction: "income",
-          stream_type: ["audio"]
+          stream_types: ["audio"]
         )
 
       assert {:error, "call_not_found"} = result
@@ -245,7 +247,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: 123,
           direction: "outcome",
-          stream_type: ["audio"]
+          stream_types: ["audio"]
         )
 
       assert {:error, "You are trying to call yourself"} = result
@@ -259,7 +261,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: 456,
           direction: "outcome",
-          stream_type: ["audio"]
+          stream_types: ["audio"]
         )
 
       assert {:ok, connection_options} = result
@@ -282,7 +284,7 @@ defmodule VideoConference.TelephoneSwitchboard.PhoneCallsTest do
           to_host_id: "local",
           to: 456,
           direction: "outcome",
-          stream_type: ["video"]
+          stream_types: ["video"]
         )
 
       assert {:ok, connection_options} = result

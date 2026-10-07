@@ -96,9 +96,13 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
 
       assert response["switchboard_video_uri"]
       assert response["switchboard_audio_uri"]
+      assert response["switchboard_event_uri"]
 
       assert response["switchboard_video_server_cert_hash"]
       assert response["switchboard_audio_server_cert_hash"]
+      assert response["switchboard_event_server_cert_hash"]
+
+      assert response["participant_id"]
     end
 
     test "returns conference credentials when password is not required", %{
@@ -124,9 +128,13 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
 
       assert response["switchboard_video_uri"]
       assert response["switchboard_audio_uri"]
+      assert response["switchboard_event_uri"]
 
       assert response["switchboard_video_server_cert_hash"]
       assert response["switchboard_audio_server_cert_hash"]
+      assert response["switchboard_event_server_cert_hash"]
+
+      assert response["participant_id"]
     end
 
     test "switchboard_video_uri and switchboard_audio_uri auth tokens params", %{

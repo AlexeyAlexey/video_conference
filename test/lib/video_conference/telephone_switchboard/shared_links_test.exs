@@ -21,7 +21,11 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
 
       shared_link = create_shared_link(attrs)
 
-      assert {:ok, result} = SharedLinks.connection_credentials(link_id: shared_link.link_id)
+      assert {:ok, result} =
+               SharedLinks.connection_credentials(
+                 link_id: shared_link.link_id,
+                 stream_types: ["video", "audio"]
+               )
 
       assert is_map(result)
       assert result["switchboard_video_uri"]
@@ -47,15 +51,18 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
       assert {:ok, result} =
                SharedLinks.connection_credentials(
                  link_id: shared_link.link_id,
-                 password: "secret123"
+                 password: "secret123",
+                 stream_types: ["video", "audio", "event"]
                )
 
       assert is_map(result)
       assert result["switchboard_video_uri"]
       assert result["switchboard_audio_uri"]
+      assert result["switchboard_event_uri"]
 
       assert result["switchboard_video_server_cert_hash"]
       assert result["switchboard_audio_server_cert_hash"]
+      assert result["switchboard_event_server_cert_hash"]
     end
 
     test "switchboard_video_uri and switchboard_audio_uri params" do
@@ -81,7 +88,8 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
               }} =
                SharedLinks.connection_credentials(
                  link_id: shared_link.link_id,
-                 password: "secret123"
+                 password: "secret123",
+                 stream_types: ["video", "audio"]
                )
 
       assert is_integer(participant_id)
@@ -116,7 +124,8 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
     end
 
     test "returns error for non-existent shared link" do
-      result = SharedLinks.connection_credentials(link_id: "nonexistent")
+      result =
+        SharedLinks.connection_credentials(link_id: "nonexistent", stream_types: ["video"])
 
       assert result == {:error, :not_found}
     end
@@ -137,7 +146,8 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
       result =
         SharedLinks.connection_credentials(
           link_id: shared_link.link_id,
-          password: "wrongpassword"
+          password: "wrongpassword",
+          stream_types: ["video"]
         )
 
       assert result == {:error, "invalid password"}
@@ -156,7 +166,11 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinksTest do
 
       shared_link = create_shared_link(attrs)
 
-      result = SharedLinks.connection_credentials(link_id: shared_link.link_id)
+      result =
+        SharedLinks.connection_credentials(
+          link_id: shared_link.link_id,
+          stream_types: ["video"]
+        )
 
       assert result == {:error, "requires password"}
     end

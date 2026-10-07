@@ -13,19 +13,23 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
 
   def connection_credentials(
         link_id: link_id,
-        password: password
+        password: password,
+        stream_types: stream_types
       )
       when is_binary(link_id) and is_binary(password) do
     with {:ok, shared_link} <- SharedLinks.one_by(link_id: link_id),
-         :ok <- check_password_if_required(shared_link, password) do
-      {:ok, provide_credentials(link_id: link_id)}
+         :ok <- check_password_if_required(shared_link, password),
+         {:ok, credentials} <- provide_credentials(link_id: link_id, stream_types: stream_types) do
+      {:ok, credentials}
     end
   end
 
-  def connection_credentials(link_id: link_id) when is_binary(link_id) do
+  def connection_credentials(link_id: link_id, stream_types: stream_types)
+      when is_binary(link_id) do
     with {:ok, shared_link} <- SharedLinks.one_by(link_id: link_id),
-         :ok <- check_password_if_required(shared_link) do
-      {:ok, provide_credentials(link_id: link_id)}
+         :ok <- check_password_if_required(shared_link),
+         {:ok, credentials} <- provide_credentials(link_id: link_id, stream_types: stream_types) do
+      {:ok, credentials}
     end
   end
 
@@ -166,35 +170,58 @@ defmodule VideoConference.TelephoneSwitchboard.SharedLinks do
     end
   end
 
-  defp provide_credentials(link_id: link_id) do
+  defp provide_credentials(link_id: link_id, stream_types: stream_types)
+       when is_list(stream_types) do
+    # TODO: use proper participant id
     participant_id = System.unique_integer([:positive, :monotonic])
     host = "local"
 
-    with {:ok, video_connection_cred} <-
-           ConnectionCredentials.for(
+    Enum.reduce_while(stream_types, %{}, fn type, acc ->
+      case ConnectionCredentials.for(
              connection_type: "conference",
-             stream_type: "video",
-             conference_id: link_id,
-             participant_id: participant_id,
-             host: host
-           ),
-         {:ok, audio_connection_cred} <-
-           ConnectionCredentials.for(
-             connection_type: "conference",
-             stream_type: "audio",
+             stream_type: type,
              conference_id: link_id,
              participant_id: participant_id,
              host: host
            ) do
-      video_connection_cred
-      |> Map.merge(audio_connection_cred)
-      |> Map.put("participant_id", participant_id)
-    else
-      {:error, "stream_type_format_is_wrong" = error} ->
+        {:ok, cred} -> {:cont, Map.merge(acc, cred)}
+        {:error, error} -> {:halt, {:error, error}}
+      end
+    end)
+    |> case do
+      {:error, error} ->
         Logger.error("Failed provide credentials #{inspect(error)}")
+        {:error, error}
 
-        %{}
+      creds ->
+        {:ok, Map.put(creds, "participant_id", participant_id)}
     end
+
+    # with {:ok, video_connection_cred} <-
+    #        ConnectionCredentials.for(
+    #          connection_type: "conference",
+    #          stream_type: "video",
+    #          conference_id: link_id,
+    #          participant_id: participant_id,
+    #          host: host
+    #        ),
+    #      {:ok, audio_connection_cred} <-
+    #        ConnectionCredentials.for(
+    #          connection_type: "conference",
+    #          stream_type: "audio",
+    #          conference_id: link_id,
+    #          participant_id: participant_id,
+    #          host: host
+    #        ) do
+    #   video_connection_cred
+    #   |> Map.merge(audio_connection_cred)
+    #   |> Map.put("participant_id", participant_id)
+    # else
+    #   {:error, "stream_type_format_is_wrong" = error} ->
+    #     Logger.error("Failed provide credentials #{inspect(error)}")
+
+    #     %{}
+    # end
   end
 
   defp generate_link_id(%Scope{phone: %Phone{id: phone_id}}) do

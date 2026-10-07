@@ -33,7 +33,7 @@ defmodule VideoConferenceWeb.PhoneChannel do
       to_host_id: "local",
       to: to,
       direction: "outcome",
-      stream_type: ["audio", "video"]
+      stream_types: ["audio", "video"]
     )
     |> case do
       {:ok, credentials} ->
@@ -68,7 +68,7 @@ defmodule VideoConferenceWeb.PhoneChannel do
       to_host_id: "local",
       to: current_phone_number(socket),
       direction: "income",
-      stream_type: ["audio", "video"]
+      stream_types: ["audio", "video"]
     )
     |> case do
       {:ok, credentials} ->

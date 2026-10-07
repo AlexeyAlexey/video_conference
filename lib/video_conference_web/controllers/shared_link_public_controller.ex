@@ -19,7 +19,8 @@ defmodule VideoConferenceWeb.SharedLinkPublicController do
   def conference_credentials(conn, %{"link_id" => link_id, "password" => password}) do
     TelephoneSwitchboard.connection_credentials(
       shared_link_id: link_id,
-      password: password
+      password: password,
+      stream_types: ["audio", "video", "event"]
     )
     |> case do
       {:ok, credentials} ->
@@ -31,7 +32,10 @@ defmodule VideoConferenceWeb.SharedLinkPublicController do
   end
 
   def conference_credentials(conn, %{"link_id" => link_id}) do
-    TelephoneSwitchboard.connection_credentials(shared_link_id: link_id)
+    TelephoneSwitchboard.connection_credentials(
+      shared_link_id: link_id,
+      stream_types: ["audio", "video", "event"]
+    )
     |> case do
       {:ok, credentials} ->
         render(conn, :conference_credentials, credentials: credentials)

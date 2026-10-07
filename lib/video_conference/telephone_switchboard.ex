@@ -8,7 +8,7 @@ defmodule VideoConference.TelephoneSwitchboard do
         to_host_id: to_host_id,
         to: to,
         direction: direction,
-        stream_type: stream_type
+        stream_types: stream_types
       ) do
     PhoneCalls.connection_credentials(
       from_host_id: from_host_id,
@@ -16,22 +16,24 @@ defmodule VideoConference.TelephoneSwitchboard do
       to_host_id: to_host_id,
       to: to,
       direction: direction,
-      stream_type: stream_type
+      stream_types: stream_types
     )
   end
 
   def connection_credentials(
         shared_link_id: link_id,
-        password: password
+        password: password,
+        stream_types: stream_types
       ) do
     SharedLinks.connection_credentials(
       link_id: link_id,
-      password: password
+      password: password,
+      stream_types: stream_types
     )
   end
 
-  def connection_credentials(shared_link_id: link_id) do
-    SharedLinks.connection_credentials(link_id: link_id)
+  def connection_credentials(shared_link_id: link_id, stream_types: stream_types) do
+    SharedLinks.connection_credentials(link_id: link_id, stream_types: stream_types)
   end
 
   def current_income_calls(to: to) do
