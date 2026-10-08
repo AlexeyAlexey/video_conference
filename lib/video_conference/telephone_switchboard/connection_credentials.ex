@@ -15,7 +15,7 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
         participant_id: participant_id,
         host: host
       )
-      when stream_type in @stream_type and is_binary(host) do
+      when stream_type in @stream_type and is_binary(host) and is_integer(participant_id) do
     token_params = %{
       room_id: "#{connection_type}/#{stream_type}/#{conference_id}",
       participant_id: participant_id,
@@ -66,7 +66,8 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentials do
         direction: direction,
         host: host
       )
-      when stream_type in @stream_type and is_binary(host) do
+      when stream_type in @stream_type and is_binary(host) and is_integer(from) and is_integer(to) and
+             is_integer(called_at) do
     participant_id = if direction == "outcome", do: from, else: to
 
     token_params = %{

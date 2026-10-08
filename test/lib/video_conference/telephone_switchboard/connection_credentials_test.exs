@@ -17,7 +17,14 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
 
   describe "for/1 with conference connection" do
     test "returns video credentials" do
-      assert {:ok, credentials} = conference_credentials("video")
+      assert {:ok, credentials} =
+               ConnectionCredentials.for(
+                 connection_type: "conference",
+                 stream_type: "video",
+                 conference_id: 123,
+                 participant_id: 42,
+                 host: "local"
+               )
 
       assert %{
                "switchboard_video_uri" => uri,
@@ -29,7 +36,14 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
     end
 
     test "returns audio credentials" do
-      assert {:ok, credentials} = conference_credentials("audio")
+      assert {:ok, credentials} =
+               ConnectionCredentials.for(
+                 connection_type: "conference",
+                 stream_type: "audio",
+                 conference_id: 123,
+                 participant_id: 42,
+                 host: "local"
+               )
 
       assert %{
                "switchboard_audio_uri" => uri,
@@ -41,7 +55,14 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
     end
 
     test "returns event credentials" do
-      assert {:ok, credentials} = conference_credentials("event")
+      assert {:ok, credentials} =
+               ConnectionCredentials.for(
+                 connection_type: "conference",
+                 stream_type: "event",
+                 conference_id: 123,
+                 participant_id: 42,
+                 host: "local"
+               )
 
       assert %{
                "switchboard_event_uri" => uri,
@@ -53,13 +74,16 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
     end
 
     test "embeds connection params in the auth token" do
-      conference_id = "conf-123"
+      conference_id = 123
       participant_id = 42
 
       assert {:ok, %{"switchboard_video_uri" => uri}} =
-               conference_credentials("video",
+               ConnectionCredentials.for(
+                 connection_type: "conference",
+                 stream_type: "video",
                  conference_id: conference_id,
-                 participant_id: participant_id
+                 participant_id: participant_id,
+                 host: "local"
                )
 
       assert {:ok,
@@ -79,7 +103,13 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
 
     test "returns error for invalid stream_type" do
       assert {:error, "stream_type_format_is_wrong"} =
-               conference_credentials("smoke_signals")
+               ConnectionCredentials.for(
+                 connection_type: "conference",
+                 stream_type: "smoke_signals",
+                 conference_id: 12345,
+                 participant_id: 123,
+                 host: "local"
+               )
     end
 
     test "raises when host is not a binary" do
@@ -98,7 +128,19 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
   describe "for/1 with phone_call connection" do
     test "returns credentials for each stream type" do
       for stream_type <- ["video", "audio", "event"] do
-        assert {:ok, credentials} = phone_call_credentials(stream_type: stream_type)
+        assert {:ok, credentials} =
+                 ConnectionCredentials.for(
+                   connection_type: "phone_call",
+                   stream_type: stream_type,
+                   from_host_id: "local",
+                   from: 123,
+                   to_host_id: "local",
+                   to: 456,
+                   phone_call_id: 2345,
+                   called_at: 111_111_111,
+                   direction: "outcome",
+                   host: "local"
+                 )
 
         uri_key = "switchboard_#{stream_type}_uri"
         cert_hash_key = "switchboard_#{stream_type}_server_cert_hash"
@@ -113,11 +155,17 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
       from = 123
 
       assert {:ok, %{"switchboard_video_uri" => uri}} =
-               phone_call_credentials(
+               ConnectionCredentials.for(
+                 connection_type: "phone_call",
                  stream_type: "video",
-                 direction: "outcome",
+                 from_host_id: "local",
                  from: from,
-                 to: 456
+                 to_host_id: "local",
+                 to: 456,
+                 phone_call_id: 2345,
+                 called_at: 111_111_111,
+                 direction: "outcome",
+                 host: "local"
                )
 
       assert {:ok, %{"participant_id" => ^from}} =
@@ -128,11 +176,17 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
       to = 456
 
       assert {:ok, %{"switchboard_video_uri" => uri}} =
-               phone_call_credentials(
+               ConnectionCredentials.for(
+                 connection_type: "phone_call",
                  stream_type: "video",
-                 direction: "income",
+                 from_host_id: "local",
                  from: 123,
-                 to: to
+                 to_host_id: "local",
+                 to: to,
+                 phone_call_id: 2345,
+                 called_at: 111_111_111,
+                 direction: "income",
+                 host: "local"
                )
 
       assert {:ok, %{"participant_id" => ^to}} =
@@ -144,11 +198,17 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
       phone_call_id = "call-789"
 
       assert {:ok, %{"switchboard_audio_uri" => uri}} =
-               phone_call_credentials(
+               ConnectionCredentials.for(
+                 connection_type: "phone_call",
                  stream_type: "audio",
-                 direction: "income",
+                 from_host_id: "local",
+                 from: 123,
+                 to_host_id: "local",
+                 to: 456,
+                 phone_call_id: phone_call_id,
                  called_at: called_at,
-                 phone_call_id: phone_call_id
+                 direction: "income",
+                 host: "local"
                )
 
       assert {:ok,
@@ -162,7 +222,7 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
                   "stream_type" => "audio",
                   "from_host_id" => "local",
                   "from" => 123,
-                  "to_host_id" => "remote",
+                  "to_host_id" => "local",
                   "to" => 456,
                   "direction" => "income",
                   "called_at" => ^called_at,
@@ -172,35 +232,6 @@ defmodule VideoConference.TelephoneSwitchboard.ConnectionCredentialsTest do
 
       assert room_id == "phone_call/audio/#{called_at}/#{phone_call_id}"
     end
-  end
-
-  defp conference_credentials(stream_type, overrides \\ []) do
-    opts = Map.new(overrides)
-
-    ConnectionCredentials.for(
-      connection_type: "conference",
-      stream_type: stream_type,
-      conference_id: Map.get(opts, :conference_id, "conf-123"),
-      participant_id: Map.get(opts, :participant_id, 42),
-      host: Map.get(opts, :host, "local")
-    )
-  end
-
-  defp phone_call_credentials(overrides) do
-    opts = Map.new(overrides)
-
-    ConnectionCredentials.for(
-      connection_type: "phone_call",
-      stream_type: Map.get(opts, :stream_type, "video"),
-      from_host_id: Map.get(opts, :from_host_id, "local"),
-      from: Map.get(opts, :from, 123),
-      to_host_id: Map.get(opts, :to_host_id, "remote"),
-      to: Map.get(opts, :to, 456),
-      phone_call_id: Map.get(opts, :phone_call_id, "call-789"),
-      called_at: Map.get(opts, :called_at, 1_700_000_000_000),
-      direction: Map.get(opts, :direction, "outcome"),
-      host: Map.get(opts, :host, "local")
-    )
   end
 
   defp assert_stream_uri(uri, stream_type) do
