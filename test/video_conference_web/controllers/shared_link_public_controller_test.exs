@@ -94,13 +94,13 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
 
       response = json_response(conn, 200)
 
-      assert response["switchboard_video_uri"]
-      assert response["switchboard_audio_uri"]
-      assert response["switchboard_event_uri"]
+      assert response["stream_server_video_uri"]
+      assert response["stream_server_audio_uri"]
+      assert response["stream_server_event_uri"]
 
-      assert response["switchboard_video_server_cert_hash"]
-      assert response["switchboard_audio_server_cert_hash"]
-      assert response["switchboard_event_server_cert_hash"]
+      assert response["stream_server_video_server_cert_hash"]
+      assert response["stream_server_audio_server_cert_hash"]
+      assert response["stream_server_event_server_cert_hash"]
 
       assert response["participant_id"]
     end
@@ -126,18 +126,18 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
 
       response = json_response(conn, 200)
 
-      assert response["switchboard_video_uri"]
-      assert response["switchboard_audio_uri"]
-      assert response["switchboard_event_uri"]
+      assert response["stream_server_video_uri"]
+      assert response["stream_server_audio_uri"]
+      assert response["stream_server_event_uri"]
 
-      assert response["switchboard_video_server_cert_hash"]
-      assert response["switchboard_audio_server_cert_hash"]
-      assert response["switchboard_event_server_cert_hash"]
+      assert response["stream_server_video_server_cert_hash"]
+      assert response["stream_server_audio_server_cert_hash"]
+      assert response["stream_server_event_server_cert_hash"]
 
       assert response["participant_id"]
     end
 
-    test "switchboard_video_uri and switchboard_audio_uri auth tokens params", %{
+    test "stream_server_video_uri and stream_server_audio_uri auth tokens params", %{
       conn: conn,
       phone: phone
     } do
@@ -171,7 +171,7 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
                 }
               }} =
                AuthTokenTestHelper.parse_and_decode_token_from_uri(
-                 response["switchboard_video_uri"]
+                 response["stream_server_video_uri"]
                )
 
       assert video_room_id
@@ -188,7 +188,7 @@ defmodule VideoConferenceWeb.SharedLinkPublicControllerTest do
                 }
               }} =
                AuthTokenTestHelper.parse_and_decode_token_from_uri(
-                 response["switchboard_audio_uri"]
+                 response["stream_server_audio_uri"]
                )
 
       assert audio_room_id
