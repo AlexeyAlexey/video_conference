@@ -34,6 +34,8 @@ RUN mix local.hex --force \
 
 # set build ENV
 ENV MIX_ENV="prod"
+ENV HEX_HTTP_CONCURRENCY=1 
+ENV HEX_HTTP_TIMEOUT=120
 
 # install mix dependencies
 COPY mix.exs mix.lock ./
