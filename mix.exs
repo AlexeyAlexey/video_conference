@@ -67,7 +67,7 @@ defmodule VideoConference.MixProject do
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"},
+      {:bandit, "~> 1.13"},
       # A JSON Web Token (JWT) Library.
       {:joken, "~> 2.6"},
       # An Elixir Plug to add Cross-Origin Resource Sharing (CORS).
