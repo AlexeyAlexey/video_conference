@@ -29,7 +29,8 @@ defmodule VideoConferenceWeb.AdminPortal.Router do
     live_session :admin,
       on_mount: [
         {VideoConferenceWeb.AdminPortal.AdminAuth, :mount_current_scope},
-        {VideoConferenceWeb.AdminPortal.AdminAuth, :ensure_authenticated}
+        {VideoConferenceWeb.AdminPortal.AdminAuth, :ensure_authenticated},
+        {VideoConferenceWeb.AdminPortal.AdminAuth, :admin_sidebar}
       ] do
       live "/", DashboardLive, :index
       live "/settings", SettingsLive, :edit

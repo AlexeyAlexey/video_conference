@@ -22,6 +22,14 @@ defmodule VideoConferenceWeb.AdminPortal.SessionControllerTest do
       assert html =~ "sm:px-0"
     end
 
+    test "does not render the admin sidebar when signed out", %{conn: conn} do
+      conn = get(conn, "/admin/log-in")
+
+      assert html = html_response(conn, 200)
+      refute html =~ ~s|id="admin-sidebar"|
+      refute html =~ ~s|id="admin-sidebar-toggle"|
+    end
+
     test "redirects an authenticated admin to the dashboard", %{conn: conn, admin: admin} do
       conn = conn |> log_in_admin(admin) |> get("/admin/log-in")
       assert redirected_to(conn) == "/admin"

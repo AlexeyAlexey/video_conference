@@ -115,6 +115,24 @@ defmodule VideoConferenceWeb.AdminPortal.AdminAuth do
     end
   end
 
+  def on_mount(:admin_sidebar, _params, _session, socket) do
+    {:cont,
+     socket
+     |> Phoenix.Component.assign(:admin_sidebar_collapsed, false)
+     |> Phoenix.LiveView.attach_hook(:toggle_admin_sidebar, :handle_event, fn
+       "toggle_admin_sidebar", _params, socket ->
+         {:halt,
+          Phoenix.Component.assign(
+            socket,
+            :admin_sidebar_collapsed,
+            not socket.assigns.admin_sidebar_collapsed
+          )}
+
+       _event, _params, socket ->
+         {:cont, socket}
+     end)}
+  end
+
   def on_mount(:redirect_if_authenticated, _params, session, socket) do
     socket = mount_current_scope(socket, session)
 

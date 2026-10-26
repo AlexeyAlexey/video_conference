@@ -7,7 +7,11 @@ defmodule VideoConferenceWeb.AdminPortal.DashboardLive do
 
   def render(assigns) do
     ~H"""
-    <Layouts.admin flash={@flash} current_scope={@current_scope}>
+    <Layouts.admin
+      flash={@flash}
+      current_scope={@current_scope}
+      admin_sidebar_collapsed={@admin_sidebar_collapsed}
+    >
       <div class="mx-auto w-full max-w-md px-2 sm:px-0">
         <.header>
           Admin Dashboard

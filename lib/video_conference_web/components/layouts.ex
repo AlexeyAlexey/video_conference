@@ -5,6 +5,8 @@ defmodule VideoConferenceWeb.Layouts do
   """
   use VideoConferenceWeb, :html
 
+  alias VideoConferenceWeb.AdminPortal.AdminComponents
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -73,12 +75,14 @@ defmodule VideoConferenceWeb.Layouts do
   end
 
   @doc """
-  Renders the admin portal layout with a dedicated navigation bar.
+  Renders the admin portal layout with a navigation bar and a left sidebar.
 
   The navigation bar always shows the portal brand and, when an admin is
-  authenticated, the admin's email, a link to the settings page, and a log
-  out button. The log out action is a plain form POST with
-  `_method=delete`, so it works without JavaScript.
+  authenticated, an icon button that collapses/expands the sidebar. The
+  sidebar, rendered only for authenticated admins, shows a link to the
+  dashboard, the admin's email, a link to the settings page, and a log out
+  button. The log out action is a plain form POST with `_method=delete`,
+  so it works without JavaScript.
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
 
@@ -86,42 +90,45 @@ defmodule VideoConferenceWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
 
+  attr :admin_sidebar_collapsed, :boolean,
+    default: false,
+    doc: "whether the admin sidebar is collapsed"
+
   slot :inner_block, required: true
 
   def admin(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
+    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 gap-x-4">
+      <div :if={@current_scope && @current_scope.admin} class="flex-none">
+        <button
+          id="admin-sidebar-toggle"
+          type="button"
+          phx-click="toggle_admin_sidebar"
+          onclick="this.blur()"
+          class="btn btn-ghost btn-sm [--btn-bg:transparent] [--btn-border:transparent]"
+          aria-label="Toggle sidebar"
+          aria-expanded={to_string(not @admin_sidebar_collapsed)}
+        >
+          <.icon name="hero-bars-3" class="size-5" />
+        </button>
+      </div>
       <div class="flex-1">
         <a href="/admin" class="text-sm font-semibold">Admin Panel</a>
       </div>
-      <div :if={@current_scope && @current_scope.admin} class="flex-none">
-        <ul class="flex items-center gap-2 sm:gap-4">
-          <li>
-            <span id="admin-navbar-email" class="text-sm opacity-70 truncate max-w-32 sm:max-w-none">
-              {@current_scope.admin.email}
-            </span>
-          </li>
-          <li>
-            <.link id="nav-settings-link" navigate="/admin/settings" class="btn btn-ghost btn-sm">
-              Settings
-            </.link>
-          </li>
-          <li>
-            <form action="/admin/log-out" method="post" class="inline">
-              <input type="hidden" name="_method" value="delete" />
-              <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-              <button type="submit" class="btn btn-outline btn-sm">Log out</button>
-            </form>
-          </li>
-        </ul>
-      </div>
     </header>
 
-    <main class="px-4 py-10 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
-        {render_slot(@inner_block)}
-      </div>
-    </main>
+    <div class="flex">
+      <AdminComponents.admin_sidebar
+        current_scope={@current_scope}
+        collapsed={@admin_sidebar_collapsed}
+      />
+
+      <main class="flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-2xl space-y-4">
+          {render_slot(@inner_block)}
+        </div>
+      </main>
+    </div>
 
     <.flash_group flash={@flash} />
     """
