@@ -73,6 +73,61 @@ defmodule VideoConferenceWeb.Layouts do
   end
 
   @doc """
+  Renders the admin portal layout with a dedicated navigation bar.
+
+  The navigation bar always shows the portal brand and, when an admin is
+  authenticated, the admin's email, a link to the settings page, and a log
+  out button. The log out action is a plain form POST with
+  `_method=delete`, so it works without JavaScript.
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    default: nil,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
+  slot :inner_block, required: true
+
+  def admin(assigns) do
+    ~H"""
+    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300">
+      <div class="flex-1">
+        <a href="/admin" class="text-sm font-semibold">Admin Panel</a>
+      </div>
+      <div :if={@current_scope && @current_scope.admin} class="flex-none">
+        <ul class="flex items-center gap-2 sm:gap-4">
+          <li>
+            <span id="admin-navbar-email" class="text-sm opacity-70 truncate max-w-32 sm:max-w-none">
+              {@current_scope.admin.email}
+            </span>
+          </li>
+          <li>
+            <.link id="nav-settings-link" navigate="/admin/settings" class="btn btn-ghost btn-sm">
+              Settings
+            </.link>
+          </li>
+          <li>
+            <form action="/admin/log-out" method="post" class="inline">
+              <input type="hidden" name="_method" value="delete" />
+              <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+              <button type="submit" class="btn btn-outline btn-sm">Log out</button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </header>
+
+    <main class="px-4 py-10 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-2xl space-y-4">
+        {render_slot(@inner_block)}
+      </div>
+    </main>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc """
   Shows the flash group with standard titles and content.
 
   ## Examples
@@ -94,6 +149,7 @@ defmodule VideoConferenceWeb.Layouts do
         title={gettext("We can't find the internet")}
         phx-disconnected={show(".phx-client-error #client-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#client-error") |> JS.set_attribute({"hidden", ""})}
+        autohide={false}
         hidden
       >
         {gettext("Attempting to reconnect")}
@@ -106,6 +162,7 @@ defmodule VideoConferenceWeb.Layouts do
         title={gettext("Something went wrong!")}
         phx-disconnected={show(".phx-server-error #server-error") |> JS.remove_attribute("hidden")}
         phx-connected={hide("#server-error") |> JS.set_attribute({"hidden", ""})}
+        autohide={false}
         hidden
       >
         {gettext("Attempting to reconnect")}

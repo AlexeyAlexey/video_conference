@@ -65,7 +65,7 @@ test/
 | Alias | Description |
 |-------|-------------|
 | `mix setup` | Install deps, create DB, run migrations, seed data, set up assets |
-| `mix precommit` | Compile (warnings as errors), unlock unused deps, format code, run tests |
+| `mix precommit` | Compile (warnings as errors), unlock unused deps, format code, run tests — run as `dotenv -e .env.test mix precommit` (plain `mix precommit` fails: the test run needs the test env DB path and `Ecto.Adapters.SQL.Sandbox` pool config) |
 | `mix ecto.setup` | Create DB, run migrations, seed data |
 | `mix ecto.reset` | Drop DB and run `ecto.setup` |
 | `mix test` | Create DB, run migrations, then run tests (use with `dotenv -e .env.test`) |
@@ -85,6 +85,8 @@ dotenv -e .env.test mix test
 dotenv -e .env iex -S mix phx.server
 ```
 
+For background/non-interactive runs use `dotenv -e .env mix phx.server` — `iex` exits on stdin EOF when there is no TTY, which takes the server down with it.
+
 ### Environment Configuration
 
 - **Database:** SQLite3 (`ecto_sqlite3`)
@@ -103,6 +105,8 @@ This app uses a custom scope-based authentication system with two pipelines:
 |----------|---------|------------|
 | `:browser` | HTML pages | `@current_scope` (phone) |
 | `:api` | JSON API | `@current_scope` (phone) |
+
+**Admin portal:** a separate email/password auth lives under `/admin` (`VideoConference.AdminPortal.Accounts` + `VideoConferenceWeb.AdminPortal.AdminAuth`, session key `:admin_token`, `current_scope.admin`). Default seeded credentials: `admin@admin.com` / `admin` — change immediately on any real deployment. Admin routes are forwarded to `VideoConferenceWeb.AdminPortal.Router` via `forward "/admin"` in the main router, so admin code uses literal paths instead of verified `~p` routes (the main router does not see forwarded routes). Caveat: LiveView + `forward` is not officially supported — the LV channel mount resolves the public `/admin/...` path against the inner router, so the admin router keeps `/admin`-prefixed **mirror `live` routes** solely for `route_info` resolution; without them LV mounts are rejected as `unauthorized` (infinite reload loop).
 
 **Key Authentication Concepts:**
 - **Scope:** Contains `current_scope.phone` with the authenticated phone record
@@ -138,7 +142,17 @@ scope "/", VideoConferenceWeb do
   pipe_through :browser
   get "/", PageController, :home
 end
+
+forward "/admin", VideoConferenceWeb.AdminPortal.Router
 ```
+
+Admin portal routes (all inside `VideoConferenceWeb.AdminPortal.Router`, see auth note above):
+- Public: `GET/POST /admin/log-in` (`SessionController.new/create`, controller-rendered HTML, no LiveView)
+- Authenticated: `GET /admin` (DashboardLive), `GET /admin/settings` (SettingsLive), `POST /admin/update-password`, `DELETE /admin/log-out`
+
+### JavaScript bundling
+
+`assets/js/app.js` is bundled by esbuild into a single file served on **every** page (root layout). Therefore every module imported by `app.js` must be **import-safe**: never touch DOM elements, `window` globals, or page-specific markup at module top level. A throw during module evaluation kills the entire bundle on that page — `liveSocket.connect()` never runs, so `phx-click`, LiveView mounts, and vanilla listeners (e.g. `data-flash-close`/`data-flash-autohide` flash dismissal) all silently die. If a module needs page-specific DOM, guard it inside the module or lazy-`import()` it. `group_socket.js` connects to `"/socket"` (`GroupSocket`) same-origin; `PhoneSocket` is mounted at `"/socket/phone"`.
 
 ### Phoenix v1.8 guidelines
 

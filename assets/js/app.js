@@ -33,6 +33,42 @@ const liveSocket = new LiveSocket("/live", Socket, {
   hooks: { ...colocatedHooks },
 })
 
+// Dismiss flash messages on pages without a connected LiveView.
+// On LiveView pages phx-click handles it as well; this keeps the close
+// button working on plain controller-rendered pages too.
+document.addEventListener("click", (e) => {
+  const closer = e.target.closest("[data-flash-close]")
+  if (!closer) return
+  const alert = closer.closest("div[role='alert']")
+  if (alert) alert.style.display = "none"
+})
+
+// Auto-dismiss flashes marked with data-flash-autohide after a delay.
+// Dismissal goes through the close button so LiveView pages also clear
+// server-side flash state via the lv:clear-flash event.
+const FLASH_DISMISS_MS = 3000
+
+const armFlash = (alert) => {
+  if (alert.dataset.flashDismissArmed) return
+  alert.dataset.flashDismissArmed = "1"
+  setTimeout(() => alert.querySelector("[data-flash-close]")?.click(), FLASH_DISMISS_MS)
+}
+
+const armFlashes = (root) => {
+  if (root.matches?.("[data-flash-autohide]")) armFlash(root)
+  root.querySelectorAll?.("[data-flash-autohide]").forEach(armFlash)
+}
+
+armFlashes(document)
+
+new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE) armFlashes(node)
+    }
+  }
+}).observe(document.documentElement, { childList: true, subtree: true })
+
 // Show progress bar on live navigation and form submits
 topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" })
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))

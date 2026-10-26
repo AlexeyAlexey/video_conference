@@ -35,4 +35,19 @@ defmodule VideoConferenceWeb.ConnCase do
     VideoConference.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  @doc """
+  Setup helper that logs the given `admin` in through the admin portal session.
+
+      test "renders the admin dashboard", %{conn: conn, admin: admin} do
+        conn = conn |> log_in_admin(admin) |> get("/admin")
+      end
+
+  """
+  def log_in_admin(conn, admin) do
+    token = VideoConference.AdminPortal.Accounts.generate_session_token(admin)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{admin_token: token})
+  end
 end

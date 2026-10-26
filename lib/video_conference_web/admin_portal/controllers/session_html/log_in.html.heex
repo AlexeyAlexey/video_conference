@@ -1,0 +1,32 @@
+<Layouts.admin flash={@flash} current_scope={@current_scope}>
+  <div class="mx-auto w-full max-w-sm px-2 sm:px-0">
+    <.header>
+      Admin Portal
+      <:subtitle>Sign in to manage application settings.</:subtitle>
+    </.header>
+
+    <.form
+      for={@form}
+      id="admin-log-in-form"
+      action="/admin/log-in"
+      method="post"
+      class="mt-8 space-y-4"
+    >
+      <.input
+        field={@form[:email]}
+        type="email"
+        label="Email"
+        autocomplete="username"
+        required
+      />
+      <.input
+        field={@form[:password]}
+        type="password"
+        label="Password"
+        autocomplete="current-password"
+        required
+      />
+      <.button class="btn btn-primary w-full">Log in</.button>
+    </.form>
+  </div>
+</Layouts.admin>

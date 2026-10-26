@@ -76,6 +76,19 @@ mix ecto.reset   # drop DB and run ecto.setup
 mix precommit    # compile (warnings as errors), format, run tests
 ```
 
+## Admin portal
+
+A small administrative web UI lives under `/admin`, isolated from the phone-based user authentication but sharing the same database. Admin data is stored in dedicated `admins` / `admin_tokens` tables, created and seeded by regular migrations in `priv/repo/migrations`.
+
+- **Sign in:** `http://localhost:4000/admin/log-in` (controller-rendered page, email + password)
+- **Dashboard:** `http://localhost:4000/admin` (LiveView, requires authentication)
+- **Settings:** `http://localhost:4000/admin/settings` — change the admin password. A successful change expires **all** admin sessions including the current one, so you'll be redirected back to the sign-in page.
+- **Sign out:** the "Log out" button in the navigation bar (a plain form POST with `_method=delete`, works without JavaScript).
+
+**Default credentials:** `admin@admin.com` / `admin`, seeded by migration — change this password immediately on any non-local deployment.
+
+Admin sessions are cookie-based (token stored server-side in `admin_tokens`, valid for 14 days) and are completely independent of the phone-token authentication used by the API and channels.
+
 ## Docker
 
 ### Build

@@ -59,6 +59,8 @@ defmodule VideoConferenceWeb.Router do
     get "/", PageController, :home
   end
 
+  forward "/admin", VideoConferenceWeb.AdminPortal.Router
+
   # Other scopes may use custom stacks.
   # scope "/api", VideoConferenceWeb do
   #   pipe_through :api
