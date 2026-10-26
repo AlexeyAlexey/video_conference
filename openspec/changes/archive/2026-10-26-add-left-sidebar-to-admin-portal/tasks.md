@@ -11,4 +11,4 @@
 ## 2. Verification
 
 - [x] 2.1 Run `dotenv -e .env.test mix precommit` and fix any warnings or failures it reports.
-- [ ] 2.2 Browser validation with the integrated browser: start `dotenv -e .env mix phx.server`, sign in at `/admin/log-in` (`admin@admin.com` / `admin`), and confirm: sidebar on the left with Dashboard / admin email / Settings / Log out; collapse and expand via the navbar icon; usable layout at a narrow (mobile) viewport; Settings navigation and Log out both work from the sidebar; `/admin/log-in` shows no sidebar when signed out.
+- [x] 2.2 Browser validation with the integrated browser: start `dotenv -e .env mix phx.server`, sign in at `/admin/log-in` (`admin@admin.com` / `admin`), and confirm: sidebar on the left with Dashboard / admin email / Settings / Log out; collapse and expand via the navbar icon; usable layout at a narrow (mobile) viewport; Settings navigation and Log out both work from the sidebar; `/admin/log-in` shows no sidebar when signed out.
