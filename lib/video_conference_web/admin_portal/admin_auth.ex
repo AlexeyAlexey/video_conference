@@ -118,7 +118,7 @@ defmodule VideoConferenceWeb.AdminPortal.AdminAuth do
   def on_mount(:admin_sidebar, _params, _session, socket) do
     {:cont,
      socket
-     |> Phoenix.Component.assign(:admin_sidebar_collapsed, false)
+     |> Phoenix.Component.assign(:admin_sidebar_collapsed, true)
      |> Phoenix.LiveView.attach_hook(:toggle_admin_sidebar, :handle_event, fn
        "toggle_admin_sidebar", _params, socket ->
          {:halt,
@@ -130,6 +130,13 @@ defmodule VideoConferenceWeb.AdminPortal.AdminAuth do
 
        _event, _params, socket ->
          {:cont, socket}
+     end)
+     |> Phoenix.LiveView.attach_hook(:close_admin_sidebar_on_navigate, :handle_params, fn
+       # The collapsed flag only affects the below-lg drawer; on lg+ the
+       # sidebar is permanent, so collapsing here is free and closes the
+       # drawer after the admin picks a destination.
+       _params, _uri, socket ->
+         {:cont, Phoenix.Component.assign(socket, :admin_sidebar_collapsed, true)}
      end)}
   end
 

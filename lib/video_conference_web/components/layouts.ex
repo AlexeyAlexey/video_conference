@@ -105,7 +105,7 @@ defmodule VideoConferenceWeb.Layouts do
           type="button"
           phx-click="toggle_admin_sidebar"
           onclick="this.blur()"
-          class="btn btn-ghost btn-sm [--btn-bg:transparent] [--btn-border:transparent]"
+          class="btn btn-ghost btn-sm [--btn-bg:transparent] [--btn-border:transparent] lg:hidden"
           aria-label="Toggle sidebar"
           aria-expanded={to_string(not @admin_sidebar_collapsed)}
         >
@@ -123,8 +123,8 @@ defmodule VideoConferenceWeb.Layouts do
         collapsed={@admin_sidebar_collapsed}
       />
 
-      <main class="flex-1 px-4 py-10 sm:px-6 lg:px-8">
-        <div class="mx-auto max-w-2xl space-y-4">
+      <main class="min-w-0 flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-5xl space-y-4">
           {render_slot(@inner_block)}
         </div>
       </main>

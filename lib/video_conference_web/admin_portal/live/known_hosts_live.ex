@@ -133,16 +133,29 @@ defmodule VideoConferenceWeb.AdminPortal.KnownHostsLive do
               phx-change="validate"
               phx-submit="save"
               class="space-y-2"
+              autocomplete="off"
+              novalidate
             >
               <.input
                 field={@form[:name]}
                 label="Name"
                 required
                 disabled={@known_host.current_host}
+                autocomplete="off"
               />
-              <.input field={@form[:name_alias]} label="Alias" />
-              <.input field={@form[:description]} type="textarea" label="Description" />
-              <.input field={@form[:host]} label="Host" placeholder="ip, domain, or ip:port" />
+              <.input field={@form[:name_alias]} label="Alias" autocomplete="off" />
+              <.input
+                field={@form[:description]}
+                type="textarea"
+                label="Description"
+                autocomplete="off"
+              />
+              <.input
+                field={@form[:host]}
+                label="Host"
+                placeholder="ip, domain, or ip:port"
+                autocomplete="off"
+              />
               <.input
                 field={@form[:enabled]}
                 type="checkbox"
@@ -161,48 +174,50 @@ defmodule VideoConferenceWeb.AdminPortal.KnownHostsLive do
           </div>
         </div>
 
-        <table id="known-hosts-table" class="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Alias</th>
-              <th>Host</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr :for={host <- @known_hosts} id={"known-host-row-#{host.id}"}>
-              <td>
-                {host.name}
-                <span :if={host.current_host} class="badge badge-primary badge-sm ml-2">Current</span>
-              </td>
-              <td>{host.name_alias}</td>
-              <td>{host.host}</td>
-              <td>{if host.enabled, do: "Enabled", else: "Disabled"}</td>
-              <td class="text-right">
-                <.link
-                  patch={"/admin/known-hosts/#{host.id}/edit"}
-                  id={"edit-known-host-#{host.id}"}
-                  class="btn btn-ghost btn-xs"
-                >
-                  Edit
-                </.link>
-                <button
-                  :if={not host.current_host}
-                  id={"delete-known-host-#{host.id}"}
-                  type="button"
-                  phx-click="delete"
-                  phx-value-id={host.id}
-                  data-confirm={"Remove #{host.name}?"}
-                  class="btn btn-ghost btn-xs text-error"
-                >
-                  Remove
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table id="known-hosts-table" class="table table-sm sm:table-md">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Alias</th>
+                <th>Host</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={host <- @known_hosts} id={"known-host-row-#{host.id}"}>
+                <td>
+                  {host.name}
+                  <span :if={host.current_host} class="badge badge-primary badge-sm ml-2">Current</span>
+                </td>
+                <td>{host.name_alias}</td>
+                <td>{host.host}</td>
+                <td>{if host.enabled, do: "Enabled", else: "Disabled"}</td>
+                <td class="text-right whitespace-nowrap">
+                  <.link
+                    patch={"/admin/known-hosts/#{host.id}/edit"}
+                    id={"edit-known-host-#{host.id}"}
+                    class="btn btn-ghost btn-xs"
+                  >
+                    Edit
+                  </.link>
+                  <button
+                    :if={not host.current_host}
+                    id={"delete-known-host-#{host.id}"}
+                    type="button"
+                    phx-click="delete"
+                    phx-value-id={host.id}
+                    data-confirm={"Remove #{host.name}?"}
+                    class="btn btn-ghost btn-xs text-error"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </Layouts.admin>
     """

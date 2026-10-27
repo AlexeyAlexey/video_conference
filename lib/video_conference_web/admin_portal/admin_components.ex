@@ -6,7 +6,8 @@ defmodule VideoConferenceWeb.AdminPortal.AdminComponents do
 
   @doc """
   Renders the admin portal sidebar with the portal navigation: a link to
-  the dashboard, a link to the known hosts page, the signed-in admin's
+  the dashboard, links to the known hosts and stream servers pages, the
+  signed-in admin's
   email, a link to the settings page with its "Change password" sub-item,
   and a log out button. Rendered only when an admin is authenticated.
   """
@@ -20,12 +21,21 @@ defmodule VideoConferenceWeb.AdminPortal.AdminComponents do
 
   def admin_sidebar(assigns) do
     ~H"""
+    <div
+      :if={@current_scope && @current_scope.admin && not @collapsed}
+      id="admin-sidebar-backdrop"
+      phx-click="toggle_admin_sidebar"
+      class="fixed inset-x-0 bottom-0 top-16 z-30 bg-black/50 lg:hidden"
+      aria-hidden="true"
+    >
+    </div>
     <aside
       :if={@current_scope && @current_scope.admin}
       id="admin-sidebar"
       class={[
         "fixed top-16 bottom-0 left-0 z-40 w-64 shrink-0 overflow-y-auto",
-        "border-r border-base-300 bg-base-200 md:static md:z-auto md:min-h-[calc(100vh-4rem)]",
+        "border-r border-base-300 bg-base-200 lg:static lg:z-auto lg:block",
+        "lg:min-h-[calc(100vh-4rem)]",
         @collapsed && "hidden"
       ]}
     >
@@ -38,6 +48,11 @@ defmodule VideoConferenceWeb.AdminPortal.AdminComponents do
         <li>
           <.link id="sidebar-known-hosts-link" navigate="/admin/known-hosts">
             <.icon name="hero-server-stack" class="size-4" /> Known hosts
+          </.link>
+        </li>
+        <li>
+          <.link id="sidebar-stream-servers-link" navigate="/admin/stream-servers">
+            <.icon name="hero-signal" class="size-4" /> Stream servers
           </.link>
         </li>
         <li class="menu-title">

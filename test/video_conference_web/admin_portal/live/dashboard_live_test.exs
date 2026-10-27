@@ -36,17 +36,21 @@ defmodule VideoConferenceWeb.AdminPortal.DashboardLiveTest do
     assert html =~ "sm:p-6"
   end
 
-  test "collapses and expands the sidebar via the navbar toggle", %{conn: conn} do
+  test "opens and closes the sidebar drawer via the toggle and backdrop", %{conn: conn} do
     admin = admin_fixture()
 
     {:ok, lv, _html} = live(conn |> log_in_admin(admin), "/admin")
 
-    refute has_element?(lv, "aside#admin-sidebar.hidden")
+    # starts as a closed drawer: hidden below lg, always shown at lg+
+    assert has_element?(lv, "aside#admin-sidebar.hidden.lg\\:block")
+    refute has_element?(lv, "#admin-sidebar-backdrop")
 
     lv |> element("#admin-sidebar-toggle") |> render_click()
+    refute has_element?(lv, "aside#admin-sidebar.hidden")
+    assert has_element?(lv, "#admin-sidebar-backdrop")
+
+    lv |> element("#admin-sidebar-backdrop") |> render_click()
     assert has_element?(lv, "aside#admin-sidebar.hidden")
-
-    lv |> element("#admin-sidebar-toggle") |> render_click()
-    refute has_element?(lv, "aside#admin-sidebar.hidden")
+    refute has_element?(lv, "#admin-sidebar-backdrop")
   end
 end

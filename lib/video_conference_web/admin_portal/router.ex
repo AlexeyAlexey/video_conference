@@ -37,6 +37,9 @@ defmodule VideoConferenceWeb.AdminPortal.Router do
       live "/known-hosts", KnownHostsLive, :index
       live "/known-hosts/new", KnownHostsLive, :new
       live "/known-hosts/:id/edit", KnownHostsLive, :edit
+      live "/stream-servers", StreamServersLive, :index
+      live "/stream-servers/new", StreamServersLive, :new
+      live "/stream-servers/:id/edit", StreamServersLive, :edit
 
       # Mirror routes for LiveView URL resolution only, see the note below.
       live "/admin", DashboardLive, :index
@@ -44,6 +47,9 @@ defmodule VideoConferenceWeb.AdminPortal.Router do
       live "/admin/known-hosts", KnownHostsLive, :index
       live "/admin/known-hosts/new", KnownHostsLive, :new
       live "/admin/known-hosts/:id/edit", KnownHostsLive, :edit
+      live "/admin/stream-servers", StreamServersLive, :index
+      live "/admin/stream-servers/new", StreamServersLive, :new
+      live "/admin/stream-servers/:id/edit", StreamServersLive, :edit
     end
   end
 
