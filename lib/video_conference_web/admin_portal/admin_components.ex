@@ -6,9 +6,9 @@ defmodule VideoConferenceWeb.AdminPortal.AdminComponents do
 
   @doc """
   Renders the admin portal sidebar with the portal navigation: a link to
-  the dashboard, the signed-in admin's email, a link to the settings page
-  with its "Change password" sub-item, and a log out button. Rendered only
-  when an admin is authenticated.
+  the dashboard, a link to the known hosts page, the signed-in admin's
+  email, a link to the settings page with its "Change password" sub-item,
+  and a log out button. Rendered only when an admin is authenticated.
   """
   attr :current_scope, :map,
     required: true,
@@ -33,6 +33,11 @@ defmodule VideoConferenceWeb.AdminPortal.AdminComponents do
         <li>
           <.link id="sidebar-dashboard-link" navigate="/admin">
             <.icon name="hero-home" class="size-4" /> Dashboard
+          </.link>
+        </li>
+        <li>
+          <.link id="sidebar-known-hosts-link" navigate="/admin/known-hosts">
+            <.icon name="hero-server-stack" class="size-4" /> Known hosts
           </.link>
         </li>
         <li class="menu-title">

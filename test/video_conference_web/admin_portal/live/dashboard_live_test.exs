@@ -21,6 +21,7 @@ defmodule VideoConferenceWeb.AdminPortal.DashboardLiveTest do
     assert has_element?(lv, "aside#admin-sidebar")
     assert has_element?(lv, ~s|a#sidebar-dashboard-link[href="/admin"]|)
     assert has_element?(lv, "#admin-sidebar-email", admin.email)
+    assert has_element?(lv, ~s|a#sidebar-known-hosts-link[href="/admin/known-hosts"]|)
     assert has_element?(lv, ~s|a#sidebar-settings-link[href="/admin/settings"]|)
     assert has_element?(lv, ~s|a#sidebar-change-password-link[href="/admin/settings"]|)
     assert has_element?(lv, ~s|form[action="/admin/log-out"][method="post"]|)
