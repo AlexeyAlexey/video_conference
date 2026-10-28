@@ -54,6 +54,13 @@ defmodule VideoConferenceWeb.AdminPortal.AdminComponents do
           <.link id="sidebar-stream-servers-link" navigate="/admin/stream-servers">
             <.icon name="hero-signal" class="size-4" /> Stream servers
           </.link>
+          <ul>
+            <li>
+              <.link id="sidebar-public-keys-link" navigate="/admin/stream-servers/keys">
+                Public keys
+              </.link>
+            </li>
+          </ul>
         </li>
         <li class="menu-title">
           <span id="admin-sidebar-email" class="truncate">{@current_scope.admin.email}</span>

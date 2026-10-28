@@ -122,6 +122,14 @@ if config_env() == :prod do
     port: http3_server_port,
     cert_hash: http3_server_cert_hash
 
+  config :video_conference, :stream_server_keys,
+    encryption_secret:
+      System.get_env("SECRET_KEY_TO_ENCRYPT_PRIVATE_KEY") ||
+        raise("""
+        environment variable SECRET_KEY_TO_ENCRYPT_PRIVATE_KEY is missing.
+        You can generate one by calling: mix phx.gen.secret
+        """)
+
   # ## SSL Support
   #
   # To get SSL working, you will need to add the `https` key
@@ -179,4 +187,7 @@ if config_env() == :dev do
     host: http3_server_host,
     port: http3_server_port,
     cert_hash: http3_server_cert_hash
+
+  config :video_conference, :stream_server_keys,
+    encryption_secret: System.get_env("SECRET_KEY_TO_ENCRYPT_PRIVATE_KEY")
 end

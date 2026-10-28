@@ -21,6 +21,9 @@ defmodule VideoConference.AdminPortal.StreamServers.StreamServer do
 
     field :cert_hash, :string, virtual: true
 
+    has_many :public_stream_server_keys,
+             VideoConference.AdminPortal.StreamServers.PublicStreamServerKey
+
     timestamps()
   end
 

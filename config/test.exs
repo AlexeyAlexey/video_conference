@@ -60,3 +60,8 @@ config :video_conference, :stream_server,
   host: System.get_env("HTTP3_SERVER_HOST"),
   port: String.to_integer(System.get_env("HTTP3_SERVER_PORT") || "4433"),
   cert_hash: System.get_env("HTTP3_SERVER_CERT_HASH")
+
+config :video_conference, :stream_server_keys,
+  encryption_secret:
+    System.get_env("SECRET_KEY_TO_ENCRYPT_PRIVATE_KEY") ||
+      "test-secret-encrypt-private-keys"

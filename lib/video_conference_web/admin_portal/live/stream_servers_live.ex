@@ -77,7 +77,10 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
   end
 
   def handle_event("pick_country", %{"code" => code}, socket) do
-    changeset = Ecto.Changeset.put_change(socket.assigns.form.source, :country, code)
+    changeset =
+      socket.assigns.form.source
+      |> Ecto.Changeset.put_change(:country, code)
+      |> Map.update!(:errors, &Keyword.delete(&1, :country))
 
     {:noreply,
      socket
@@ -220,7 +223,7 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
                     aria-haspopup="listbox"
                     aria-expanded={to_string(@country_open)}
                   >
-                    <span class="flex items-center justify-between gap-2">
+                    <span class="flex w-full items-center justify-between gap-2">
                       <span>{country_label(@form[:country].value)}</span>
                       <.icon name="hero-chevron-down" class="size-4 opacity-60" />
                     </span>
