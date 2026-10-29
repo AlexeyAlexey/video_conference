@@ -1,3 +1,8 @@
+---
+name: liveview-custom-dropdown
+description: How to add dropdown/select fields in this Phoenix LiveView admin portal using the shared DropdownComponent. Use whenever a form needs a dropdown — never use a native <select>, because in Chrome mobile/responsive mode its option popup renders detached at a wrong position on the page.
+---
+
 # Custom LiveView dropdown (never a native `<select>`)
 
 ## Why
