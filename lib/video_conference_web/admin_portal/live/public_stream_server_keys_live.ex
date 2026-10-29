@@ -3,9 +3,10 @@ defmodule VideoConferenceWeb.AdminPortal.PublicStreamServerKeysLive do
 
   alias VideoConference.AdminPortal.StreamServers
   alias VideoConference.AdminPortal.StreamServers.PublicStreamServerKey
+  alias VideoConferenceWeb.AdminPortal.DropdownComponent
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, server_open: false)}
+    {:ok, socket}
   end
 
   def handle_params(params, _uri, socket) do
@@ -60,26 +61,6 @@ defmodule VideoConferenceWeb.AdminPortal.PublicStreamServerKeysLive do
 
   def handle_event("save", %{"public_stream_server_key" => key_params}, socket) do
     save_key(socket, socket.assigns.live_action, key_params)
-  end
-
-  def handle_event("toggle_server_dropdown", _params, socket) do
-    {:noreply, assign(socket, :server_open, not socket.assigns.server_open)}
-  end
-
-  def handle_event("close_server_dropdown", _params, socket) do
-    {:noreply, assign(socket, :server_open, false)}
-  end
-
-  def handle_event("pick_server", %{"id" => id}, socket) do
-    changeset =
-      socket.assigns.form.source
-      |> Ecto.Changeset.put_change(:stream_server_id, String.to_integer(id))
-      |> Map.update!(:errors, &Keyword.delete(&1, :stream_server_id))
-
-    {:noreply,
-     socket
-     |> assign_form(changeset)
-     |> assign(:server_open, false)}
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
@@ -145,6 +126,15 @@ defmodule VideoConferenceWeb.AdminPortal.PublicStreamServerKeysLive do
     end
   end
 
+  def handle_info({:stream_server_picked, id}, socket) do
+    changeset =
+      socket.assigns.form.source
+      |> Ecto.Changeset.put_change(:stream_server_id, String.to_integer(id))
+      |> Map.update!(:errors, &Keyword.delete(&1, :stream_server_id))
+
+    {:noreply, assign_form(socket, changeset)}
+  end
+
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do
     assign(socket, :form, to_form(changeset))
   end
@@ -207,67 +197,16 @@ defmodule VideoConferenceWeb.AdminPortal.PublicStreamServerKeysLive do
               novalidate
             >
               <.input field={@form[:name]} label="Name" required autocomplete="off" />
-              <div class="fieldset mb-2" id="stream-server-field">
-                <span class="label mb-1">Stream server</span>
-                <div class="relative" phx-click-away="close_server_dropdown">
-                  <button
-                    type="button"
-                    id="stream-server-dropdown-button"
-                    phx-click="toggle_server_dropdown"
-                    class="input w-full cursor-pointer text-left"
-                    aria-haspopup="listbox"
-                    aria-expanded={to_string(@server_open)}
-                  >
-                    <span class="flex w-full items-center justify-between gap-2">
-                      <span>{stream_server_label(@form[:stream_server_id].value, @stream_servers)}</span>
-                      <.icon name="hero-chevron-down" class="size-4 opacity-60" />
-                    </span>
-                  </button>
-                  <div
-                    :if={@server_open}
-                    id="stream-server-dropdown"
-                    class="absolute inset-x-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
-                    role="listbox"
-                  >
-                    <ul>
-                      <li :for={server <- @stream_servers}>
-                        <button
-                          type="button"
-                          id={"stream-server-option-#{server.id}"}
-                          phx-click="pick_server"
-                          phx-value-id={server.id}
-                          role="option"
-                          aria-selected={
-                            to_string(
-                              to_string(@form[:stream_server_id].value) ==
-                                to_string(server.id)
-                            )
-                          }
-                          class={[
-                            "block w-full rounded px-2 py-1 text-left hover:bg-base-200",
-                            to_string(@form[:stream_server_id].value) == to_string(server.id) &&
-                              "bg-base-200 font-semibold"
-                          ]}
-                        >
-                          {server.name}
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-                <input
-                  type="hidden"
-                  id={@form[:stream_server_id].id}
-                  name={@form[:stream_server_id].name}
-                  value={@form[:stream_server_id].value}
-                />
-                <p
-                  :for={msg <- stream_server_errors(@form)}
-                  class="mt-1.5 flex items-center gap-2 text-sm text-error"
-                >
-                  <.icon name="hero-exclamation-circle" class="size-5" />{msg}
-                </p>
-              </div>
+              <.live_component
+                module={DropdownComponent}
+                id="stream-server"
+                label="Stream server"
+                field={@form[:stream_server_id]}
+                options={for server <- @stream_servers, do: {server.name, server.id}}
+                placeholder="Choose a stream server"
+                value_key="id"
+                on_change={fn id -> send(self(), {:stream_server_picked, id}) end}
+              />
               <.input
                 :if={@live_action == :new}
                 field={@form[:public_key_id]}
@@ -420,24 +359,6 @@ defmodule VideoConferenceWeb.AdminPortal.PublicStreamServerKeysLive do
   defp form_title(:new), do: "Add public key"
   defp form_title(:generate), do: "Generate public key"
   defp form_title(:edit), do: "Edit public key"
-
-  defp stream_server_label(nil, _servers), do: "Choose a stream server"
-  defp stream_server_label("", _servers), do: "Choose a stream server"
-
-  defp stream_server_label(id, servers) do
-    case Enum.find(servers, &(to_string(&1.id) == to_string(id))) do
-      nil -> "Choose a stream server"
-      server -> server.name
-    end
-  end
-
-  defp stream_server_errors(form) do
-    field = form[:stream_server_id]
-
-    if Phoenix.Component.used_input?(field),
-      do: Enum.map(field.errors, &translate_error/1),
-      else: []
-  end
 
   defp private_key_placeholder(:edit), do: "Leave blank to keep the current key"
   defp private_key_placeholder(_action), do: "-----BEGIN PRIVATE KEY-----"

@@ -1,150 +1,124 @@
----
-name: liveview-custom-dropdown
-description: How to build dropdown/select fields in this Phoenix LiveView admin portal. Use whenever a form needs a dropdown — never use a native <select>, because in Chrome mobile/responsive mode its option popup renders detached at a wrong position on the page.
----
-
 # Custom LiveView dropdown (never a native `<select>`)
 
 ## Why
 
 Native `<select>` elements are broken in this app's UI: in Chrome's mobile /
 responsive device mode the browser renders the option popup detached, at an
-unrelated position on the page. The country picker in
-`StreamServersLive` (change `2026-10-27-add-stream-servers-list-to-admin-portal`)
-hit this first; the stream-server picker in `PublicStreamServerKeysLive` hit it
-again. Always use the custom button + listbox pattern below.
+unrelated position on the page. Always use
+`VideoConferenceWeb.AdminPortal.DropdownComponent`
+(`lib/video_conference_web/admin_portal/dropdown_component.ex`) — a stateful
+LiveComponent that renders a daisyUI button+listbox, owns its open/search
+state, binds the picked value to the enclosing form via a hidden input, and
+supports an optional filter and an empty ("None") choice.
 
 ## Reference implementations
 
-- `lib/video_conference_web/admin_portal/live/stream_servers_live.ex` — country
-  dropdown **with a search filter** (use when the option list is long).
 - `lib/video_conference_web/admin_portal/live/public_stream_server_keys_live.ex` —
-  stream server dropdown **without search** (use for short lists).
+  stream server dropdown, static `{label, value}` list, `value_key="id"`,
+  no search, no empty choice.
+- `lib/video_conference_web/admin_portal/live/stream_servers_live.ex` —
+  country dropdown, `options={&Countries.options_for_select/1}` fun,
+  `searchable`, `empty_label="None"`, `value_key="code"`.
 
-## The pattern
+## Usage
+
+Render the component **inside `<.form>`** — its hidden input submits the
+picked value through the form's normal `phx-change`/`phx-submit` flow:
+
+```heex
+<.live_component
+  module={DropdownComponent}
+  id="stream-server"                        # also the DOM-id prefix
+  label="Stream server"
+  field={@form[:stream_server_id]}          # Phoenix.HTML.FormField
+  options={for s <- @stream_servers, do: {s.name, s.id}}
+  placeholder="Choose a stream server"
+  value_key="id"                            # renders phx-value-id on options
+  on_change={fn id -> send(self(), {:stream_server_picked, id}) end}
+/>
+```
+
+Searchable variant with an empty choice (long option lists):
+
+```heex
+<.live_component
+  module={DropdownComponent}
+  id="country"
+  label="Country"
+  field={@form[:country]}
+  options={&Countries.options_for_select/1}
+  searchable
+  empty_label="None"
+  search_placeholder="Type to filter countries"
+  value_key="code"
+  on_change={fn code -> send(self(), {:country_picked, code}) end}
+/>
+```
 
 ### Assigns
 
+| Assign | Required | Notes |
+|--------|----------|-------|
+| `id` | yes | Component id + DOM-id prefix (see DOM ids below) |
+| `label` | yes | Field label |
+| `field` | yes | `@form[:field]` — drives hidden input id/name/value |
+| `options` | yes | `{label, value}` list **or** arity-1 `query -> list` fun |
+| `on_change` | yes | Arity-1 callback invoked with the picked value (a string) |
+| `placeholder` | no | Button text when nothing selected (default `""`) |
+| `empty_label` | no | When set, renders an empty choice first and is the empty-value button label |
+| `searchable` | no | Renders a debounced filter input (default `false`) |
+| `search_placeholder` | no | Filter input placeholder (default `"Type to filter"`) |
+| `value_key` | no | `phx-value-*` key on option buttons (default `"value"`) |
+
+`options` details:
+
+- A **list** is filtered internally by case-insensitive substring match on
+  the label — only relevant when `searchable`.
+- A **fun** `query -> list` supplies the filtered list itself
+  (`&Countries.options_for_select/1`), so the caller controls filtering
+  semantics. It must be a cheap pure lookup — it runs on every open and on
+  each debounced keystroke — and `fun.("")` must return all options (it is
+  also called to resolve the selected value's label).
+
+## Parent side: `on_change` + `handle_info`
+
+The component never stores the selected value — the parent owns it. Pick
+emits the raw string through `on_change`; the standard recipe is to send
+the parent a message and apply it in `handle_info`:
+
 ```elixir
-def mount(_params, _session, socket) do
-  {:ok, assign(socket, <field>_open: false)}
-end
-```
-
-### Events
-
-```elixir
-def handle_event("toggle_<field>_dropdown", _params, socket) do
-  {:noreply, assign(socket, :<field>_open, not socket.assigns.<field>_open)}
-end
-
-def handle_event("close_<field>_dropdown", _params, socket) do
-  {:noreply, assign(socket, :<field>_open, false)}
-end
-
-def handle_event("pick_<field>", %{"id" => id}, socket) do
+def handle_info({:stream_server_picked, id}, socket) do
   changeset =
     socket.assigns.form.source
-    |> Ecto.Changeset.put_change(:<field>, id)
-    |> Map.update!(:errors, &Keyword.delete(&1, :<field>))
+    |> Ecto.Changeset.put_change(:stream_server_id, String.to_integer(id))
+    |> Map.update!(:errors, &Keyword.delete(&1, :stream_server_id))
 
-  {:noreply, socket |> assign_form(changeset) |> assign(:<field>_open, false)}
+  {:noreply, assign_form(socket, changeset)}
 end
 ```
 
-Two non-obvious steps are required in `pick_<field>`:
+Two non-obvious steps are required:
 
-- Cast `id` to the field's type first (`String.to_integer(id)` for
-  integer/belongs_to fields) — `put_change` does not cast.
+- **Cast the value yourself** (`String.to_integer(id)` for integer/belongs_to
+  fields) — `put_change/3` does not cast, and the component emits strings.
 - **`put_change/3` does not remove an existing validation error.** If the
-  form was already validated (e.g. the user typed in another field first),
-  the field's `can't be blank` stays rendered even though the value is set.
-  `Keyword.delete` on `changeset.errors` clears it.
+  form was already validated, the field's `can't be blank` stays rendered
+  even though the value is set. `Keyword.delete` on `changeset.errors`
+  clears it.
 
-### Markup (inside `<.form>`)
+## DOM-id convention
 
-```heex
-<div class="fieldset mb-2" id="<field>-field">
-  <span class="label mb-1"><Label></span>
-  <div class="relative" phx-click-away="close_<field>_dropdown">
-    <button
-      type="button"
-      id="<field>-dropdown-button"
-      phx-click="toggle_<field>_dropdown"
-      class="input w-full cursor-pointer text-left"
-      aria-haspopup="listbox"
-      aria-expanded={to_string(@<field>_open)}
-    >
-      <span class="flex w-full items-center justify-between gap-2">
-        <span>{<label_fn>(@form[:<field>].value)}</span>
-        <.icon name="hero-chevron-down" class="size-4 opacity-60" />
-      </span>
-    </button>
-    <div
-      :if={@<field>_open}
-      id="<field>-dropdown"
-      class="absolute inset-x-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
-      role="listbox"
-    >
-      <ul>
-        <li :for={opt <- @<options>}>
-          <button
-            type="button"
-            id={"<field>-option-#{opt.id}"}
-            phx-click="pick_<field>"
-            phx-value-id={opt.id}
-            role="option"
-            aria-selected={to_string(to_string(@form[:<field>].value) == to_string(opt.id))}
-            class={[
-              "block w-full rounded px-2 py-1 text-left hover:bg-base-200",
-              to_string(@form[:<field>].value) == to_string(opt.id) &&
-                "bg-base-200 font-semibold"
-            ]}
-          >
-            {opt.name}
-          </button>
-        </li>
-      </ul>
-    </div>
-  </div>
-  <input
-    type="hidden"
-    id={@form[:<field>].id}
-    name={@form[:<field>].name}
-    value={@form[:<field>].value}
-  />
-  <p :for={msg <- <field>_errors(@form)} class="mt-1.5 flex items-center gap-2 text-sm text-error">
-    <.icon name="hero-exclamation-circle" class="size-5" />{msg}
-  </p>
-</div>
-```
+Every rendered id derives from the component `id` (`#{id}` = `id` below):
 
-### Error helper
+- `#{id}-field` — outer `div.fieldset`
+- `#{id}-dropdown-button` — the toggle button
+- `#{id}-dropdown` — the open listbox (`role="listbox"`)
+- `#{id}-search` — filter input (`name="#{id}_search"`, searchable only)
+- `#{id}-option-none` — empty choice (when `empty_label` set)
+- `#{id}-option-#{value}` — each real option (`role="option"`)
 
-```elixir
-defp <field>_errors(form) do
-  field = form[:<field>]
-
-  if Phoenix.Component.used_input?(field),
-    do: Enum.map(field.errors, &translate_error/1),
-    else: []
-end
-```
-
-## Details that matter
-
-- **`w-full` on the inner flex span is required.** Inside the daisyUI
-  `input`-styled button the span can shrink to content width, leaving
-  `justify-between` with no room — the chevron then sits next to the label
-  instead of flush right.
-- The hidden `<input>` lives **inside `<.form>`** so `phx-change`/`phx-submit`
-  submit the picked value normally.
-- `phx-click-away` on the `.relative` wrapper closes the listbox on outside
-  clicks; options close it via the pick event.
-- For long option lists, copy the searchable variant from
-  `StreamServersLive`: a `phx-debounce="200"` filter input inside the listbox
-  plus a `*_query`/`*_options` assign pair. Always include a "None"/empty
-  option when the field is optional (see `country-option-none`).
+All events are handled inside the component with `phx-target={@myself}` —
+the parent keeps **zero** dropdown assigns or `handle_event`s.
 
 ## Testing
 
@@ -153,9 +127,18 @@ end
   user instead:
 
   ```elixir
-  lv |> element("#<field>-dropdown-button") |> render_click()
-  lv |> element(~s|#<field>-dropdown button[phx-value-id="#{id}"]|) |> render_click()
+  lv |> element("#country-dropdown-button") |> render_click()
+  lv |> element(~s|#country-dropdown button[phx-value-code="de"]|) |> render_click()
   ```
 
 - Assert the hidden input got the value:
-  `has_element?(lv, ~s|input[name="<schema>[<field>]"][value="#{id}"]|)`.
+  `has_element?(lv, ~s|input[name="stream_server[country]"][value="de"]|)`.
+- `phx-click-away` is **not** simulated by LiveViewTest — assert the
+  `[phx-click-away="close"]` binding exists, and exercise the component's
+  `"close"` event with a test element like
+  `<button phx-click="close" phx-target="#<id>-field">` (the test DOM
+  resolves the selector to the component via `data-phx-component`).
+- Component-level coverage lives in
+  `test/video_conference_web/admin_portal/dropdown_component_test.exs`,
+  which drives the component through a minimal host LiveView mounted with
+  `live_isolated/3`.

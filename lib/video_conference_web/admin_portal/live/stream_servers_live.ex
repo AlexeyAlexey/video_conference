@@ -3,15 +3,10 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
 
   alias VideoConference.AdminPortal.StreamServers
   alias VideoConference.AdminPortal.StreamServers.{Countries, StreamServer}
+  alias VideoConferenceWeb.AdminPortal.DropdownComponent
 
   def mount(_params, _session, socket) do
-    {:ok,
-     assign(socket,
-       page_title: "Stream Servers",
-       country_open: false,
-       country_query: "",
-       country_options: Countries.options_for_select()
-     )}
+    {:ok, assign(socket, page_title: "Stream Servers")}
   end
 
   def handle_params(params, _uri, socket) do
@@ -56,50 +51,6 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
     save_stream_server(socket, socket.assigns.live_action, stream_server_params)
   end
 
-  def handle_event("toggle_country_dropdown", _params, socket) do
-    open = not socket.assigns.country_open
-
-    socket =
-      if open do
-        assign(socket,
-          country_query: "",
-          country_options: Countries.options_for_select()
-        )
-      else
-        socket
-      end
-
-    {:noreply, assign(socket, :country_open, open)}
-  end
-
-  def handle_event("close_country_dropdown", _params, socket) do
-    {:noreply, assign(socket, :country_open, false)}
-  end
-
-  def handle_event("pick_country", %{"code" => code}, socket) do
-    changeset =
-      socket.assigns.form.source
-      |> Ecto.Changeset.put_change(:country, code)
-      |> Map.update!(:errors, &Keyword.delete(&1, :country))
-
-    {:noreply,
-     socket
-     |> assign_form(changeset)
-     |> assign(
-       country_open: false,
-       country_query: "",
-       country_options: Countries.options_for_select()
-     )}
-  end
-
-  def handle_event("filter_countries", %{"country_search" => query}, socket) do
-    {:noreply,
-     assign(socket,
-       country_query: query,
-       country_options: Countries.options_for_select(query)
-     )}
-  end
-
   def handle_event("delete", %{"id" => id}, socket) do
     stream_server = StreamServers.get_stream_server!(id)
 
@@ -141,21 +92,17 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
     end
   end
 
-  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
-    assign(socket, :form, to_form(changeset))
+  def handle_info({:country_picked, code}, socket) do
+    changeset =
+      socket.assigns.form.source
+      |> Ecto.Changeset.put_change(:country, code)
+      |> Map.update!(:errors, &Keyword.delete(&1, :country))
+
+    {:noreply, assign_form(socket, changeset)}
   end
 
-  defp country_label(code) when is_binary(code) and code != "",
-    do: Countries.option_label(code)
-
-  defp country_label(_code), do: "None"
-
-  defp country_errors(form) do
-    field = form[:country]
-
-    if Phoenix.Component.used_input?(field),
-      do: Enum.map(field.errors, &translate_error/1),
-      else: []
+  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
+    assign(socket, :form, to_form(changeset))
   end
 
   def render(assigns) do
@@ -212,89 +159,18 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
                 placeholder="ip, domain, or ip:port"
                 autocomplete="off"
               />
-              <div class="fieldset mb-2" id="country-field">
-                <span class="label mb-1">Country</span>
-                <div class="relative" phx-click-away="close_country_dropdown">
-                  <button
-                    type="button"
-                    id="country-dropdown-button"
-                    phx-click="toggle_country_dropdown"
-                    class="input w-full cursor-pointer text-left"
-                    aria-haspopup="listbox"
-                    aria-expanded={to_string(@country_open)}
-                  >
-                    <span class="flex w-full items-center justify-between gap-2">
-                      <span>{country_label(@form[:country].value)}</span>
-                      <.icon name="hero-chevron-down" class="size-4 opacity-60" />
-                    </span>
-                  </button>
-                  <div
-                    :if={@country_open}
-                    id="country-dropdown"
-                    class="absolute inset-x-0 z-50 mt-1 max-h-64 overflow-y-auto rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
-                    role="listbox"
-                  >
-                    <input
-                      type="text"
-                      id="country-search"
-                      name="country_search"
-                      value={@country_query}
-                      placeholder="Type to filter countries"
-                      phx-change="filter_countries"
-                      phx-debounce="200"
-                      phx-mounted={JS.focus()}
-                      autocomplete="off"
-                      class="input input-sm mb-1 w-full"
-                    />
-                    <ul>
-                      <li>
-                        <button
-                          type="button"
-                          id="country-option-none"
-                          phx-click="pick_country"
-                          phx-value-code=""
-                          role="option"
-                          aria-selected={to_string(@form[:country].value in [nil, ""])}
-                          class={[
-                            "block w-full rounded px-2 py-1 text-left hover:bg-base-200",
-                            @form[:country].value in [nil, ""] && "bg-base-200 font-semibold"
-                          ]}
-                        >
-                          None
-                        </button>
-                      </li>
-                      <li :for={{label, code} <- @country_options}>
-                        <button
-                          type="button"
-                          id={"country-option-#{code}"}
-                          phx-click="pick_country"
-                          phx-value-code={code}
-                          role="option"
-                          aria-selected={to_string(@form[:country].value == code)}
-                          class={[
-                            "block w-full rounded px-2 py-1 text-left hover:bg-base-200",
-                            @form[:country].value == code && "bg-base-200 font-semibold"
-                          ]}
-                        >
-                          {label}
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-                <input
-                  type="hidden"
-                  id={@form[:country].id}
-                  name={@form[:country].name}
-                  value={@form[:country].value}
-                />
-                <p
-                  :for={msg <- country_errors(@form)}
-                  class="mt-1.5 flex items-center gap-2 text-sm text-error"
-                >
-                  <.icon name="hero-exclamation-circle" class="size-5" />{msg}
-                </p>
-              </div>
+              <.live_component
+                module={DropdownComponent}
+                id="country"
+                label="Country"
+                field={@form[:country]}
+                options={&Countries.options_for_select/1}
+                searchable
+                empty_label="None"
+                search_placeholder="Type to filter countries"
+                value_key="code"
+                on_change={fn code -> send(self(), {:country_picked, code}) end}
+              />
               <.input
                 field={@form[:cert_hash]}
                 label="Certificate hash"
