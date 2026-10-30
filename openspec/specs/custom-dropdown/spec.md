@@ -11,10 +11,11 @@ in Chrome's mobile/responsive mode.
 
 ### Requirement: Custom dropdown control
 
-The admin portal SHALL provide a reusable custom dropdown form control that
-renders a button showing the current selection and, when opened, a listbox
-of options anchored directly beneath the field. It SHALL NOT use a native
-`<select>` element.
+The application SHALL provide a shared reusable custom dropdown form
+control, available to any LiveView in the application (not only the admin
+portal), that renders a button showing the current selection and, when
+opened, a listbox of options anchored directly beneath the field. It SHALL
+NOT use a native `<select>` element.
 
 #### Scenario: Closed dropdown shows the current selection
 
@@ -24,7 +25,7 @@ of options anchored directly beneath the field. It SHALL NOT use a native
 
 #### Scenario: Opening the dropdown
 
-- **WHEN** an admin activates the dropdown button
+- **WHEN** a user activates the dropdown button
 - **THEN** the listbox opens beneath the field showing every option
 
 #### Scenario: No native select rendered
@@ -128,3 +129,23 @@ and desktop viewports.
   on a narrow viewport
 - **THEN** the listbox scrolls inside its own container without overflowing
   the page
+
+### Requirement: Shared availability
+
+The dropdown control SHALL live in the shared web component namespace so
+that any LiveView — inside or outside the admin portal — can use it
+without depending on admin portal modules.
+
+#### Scenario: Non-admin LiveView uses the dropdown
+
+- **WHEN** a LiveView outside the admin portal renders a form containing
+  the dropdown
+- **THEN** the control renders and behaves identically to its admin portal
+  usage, with no admin-portal-specific module reference required
+
+#### Scenario: Admin portal usages keep working
+
+- **WHEN** an existing admin portal form renders the dropdown after the
+  move
+- **THEN** its selection, filtering, empty-choice, and form-binding
+  behavior are unchanged
