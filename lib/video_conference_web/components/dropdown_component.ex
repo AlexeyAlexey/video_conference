@@ -1,6 +1,6 @@
-defmodule VideoConferenceWeb.AdminPortal.DropdownComponent do
+defmodule VideoConferenceWeb.DropdownComponent do
   @moduledoc """
-  Reusable custom dropdown/select form control for admin portal forms.
+  Reusable custom dropdown/select form control for application forms.
 
   Never a native `<select>` element: in Chrome's mobile/responsive mode the
   native option popup renders detached at a wrong position on the page.

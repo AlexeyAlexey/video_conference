@@ -3,7 +3,7 @@ defmodule VideoConferenceWeb.AdminPortal.PublicStreamServerKeysLive do
 
   alias VideoConference.AdminPortal.StreamServers
   alias VideoConference.AdminPortal.StreamServers.PublicStreamServerKey
-  alias VideoConferenceWeb.AdminPortal.DropdownComponent
+  alias VideoConferenceWeb.DropdownComponent
 
   def mount(_params, _session, socket) do
     {:ok, socket}

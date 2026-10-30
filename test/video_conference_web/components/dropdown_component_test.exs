@@ -1,14 +1,14 @@
-defmodule VideoConferenceWeb.AdminPortal.DropdownComponentTest do
+defmodule VideoConferenceWeb.DropdownComponentTest do
   use VideoConferenceWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
 
-  alias VideoConferenceWeb.AdminPortal.DropdownComponent
+  alias VideoConferenceWeb.DropdownComponent
 
   defmodule HostLive do
     use VideoConferenceWeb, :live_view
 
-    alias VideoConferenceWeb.AdminPortal.DropdownComponent
+    alias VideoConferenceWeb.DropdownComponent
 
     @options [{"Alpha", "a"}, {"Beta", "b"}, {"Gamma", "g"}]
 

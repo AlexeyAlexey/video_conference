@@ -1,6 +1,6 @@
 ---
 name: liveview-custom-dropdown
-description: How to add dropdown/select fields in this Phoenix LiveView admin portal using the shared DropdownComponent. Use whenever a form needs a dropdown — never use a native <select>, because in Chrome mobile/responsive mode its option popup renders detached at a wrong position on the page.
+description: How to add dropdown/select fields in this Phoenix LiveView app using the shared DropdownComponent. Use whenever a form needs a dropdown — never use a native <select>, because in Chrome mobile/responsive mode its option popup renders detached at a wrong position on the page.
 ---
 
 # Custom LiveView dropdown (never a native `<select>`)
@@ -10,8 +10,8 @@ description: How to add dropdown/select fields in this Phoenix LiveView admin po
 Native `<select>` elements are broken in this app's UI: in Chrome's mobile /
 responsive device mode the browser renders the option popup detached, at an
 unrelated position on the page. Always use
-`VideoConferenceWeb.AdminPortal.DropdownComponent`
-(`lib/video_conference_web/admin_portal/dropdown_component.ex`) — a stateful
+`VideoConferenceWeb.DropdownComponent`
+(`lib/video_conference_web/components/dropdown_component.ex`) — a stateful
 LiveComponent that renders a daisyUI button+listbox, owns its open/search
 state, binds the picked value to the enclosing form via a hidden input, and
 supports an optional filter and an empty ("None") choice.
@@ -144,6 +144,6 @@ the parent keeps **zero** dropdown assigns or `handle_event`s.
   `<button phx-click="close" phx-target="#<id>-field">` (the test DOM
   resolves the selector to the component via `data-phx-component`).
 - Component-level coverage lives in
-  `test/video_conference_web/admin_portal/dropdown_component_test.exs`,
+  `test/video_conference_web/components/dropdown_component_test.exs`,
   which drives the component through a minimal host LiveView mounted with
   `live_isolated/3`.

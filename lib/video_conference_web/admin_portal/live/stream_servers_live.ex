@@ -3,7 +3,7 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
 
   alias VideoConference.AdminPortal.StreamServers
   alias VideoConference.AdminPortal.StreamServers.{Countries, StreamServer}
-  alias VideoConferenceWeb.AdminPortal.DropdownComponent
+  alias VideoConferenceWeb.DropdownComponent
 
   def mount(_params, _session, socket) do
     {:ok, assign(socket, page_title: "Stream Servers")}
