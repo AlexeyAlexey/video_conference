@@ -36,8 +36,14 @@ config :video_conference, VideoConference.Repo,
     type: :utc_datetime
   ]
 
+config :video_conference, VideoConference.StreamServerAdminPortal.Repo,
+  priv: "priv/stream_server_admin_portal_repo",
+  migration_timestamps: [
+    type: :utc_datetime
+  ]
+
 config :video_conference,
-  ecto_repos: [VideoConference.Repo]
+  ecto_repos: [VideoConference.Repo, VideoConference.StreamServerAdminPortal.Repo]
 
 # Configures the mailer
 #

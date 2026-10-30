@@ -7,6 +7,9 @@ defmodule VideoConferenceWeb.Layouts do
 
   alias VideoConferenceWeb.AdminPortal.AdminComponents
 
+  alias VideoConferenceWeb.StreamServerAdminPortal.AdminComponents,
+    as: StreamServerAdminComponents
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers
@@ -119,6 +122,67 @@ defmodule VideoConferenceWeb.Layouts do
 
     <div class="flex">
       <AdminComponents.admin_sidebar
+        current_scope={@current_scope}
+        collapsed={@admin_sidebar_collapsed}
+      />
+
+      <main class="min-w-0 flex-1 px-4 py-10 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-5xl space-y-4">
+          {render_slot(@inner_block)}
+        </div>
+      </main>
+    </div>
+
+    <.flash_group flash={@flash} />
+    """
+  end
+
+  @doc """
+  Renders the stream server admin portal layout with a navigation bar and a
+  left sidebar.
+
+  The navigation bar always shows the portal brand and, when an admin is
+  authenticated, an icon button that collapses/expands the sidebar. The
+  sidebar, rendered only for authenticated admins, shows a link to the
+  dashboard, the admin's email, a link to the settings page, and a log out
+  button. The log out action is a plain form POST with `_method=delete`,
+  so it works without JavaScript.
+  """
+  attr :flash, :map, required: true, doc: "the map of flash messages"
+
+  attr :current_scope, :map,
+    default: nil,
+    doc: "the current [scope](https://hexdocs.pm/phoenix/scopes.html)"
+
+  attr :admin_sidebar_collapsed, :boolean,
+    default: false,
+    doc: "whether the admin sidebar is collapsed"
+
+  slot :inner_block, required: true
+
+  def stream_server_admin(assigns) do
+    ~H"""
+    <header class="navbar px-4 sm:px-6 lg:px-8 border-b border-base-300 gap-x-4">
+      <div :if={@current_scope && @current_scope.admin} class="flex-none">
+        <button
+          id="stream-server-admin-sidebar-toggle"
+          type="button"
+          phx-click="toggle_admin_sidebar"
+          onclick="this.blur()"
+          class="btn btn-ghost btn-sm [--btn-bg:transparent] [--btn-border:transparent] lg:hidden"
+          aria-label="Toggle sidebar"
+          aria-expanded={to_string(not @admin_sidebar_collapsed)}
+        >
+          <.icon name="hero-bars-3" class="size-5" />
+        </button>
+      </div>
+      <div class="flex-1">
+        <a href="/stream-server-admin" class="text-sm font-semibold">Stream Server Admin</a>
+      </div>
+    </header>
+
+    <div class="flex">
+      <StreamServerAdminComponents.admin_sidebar
         current_scope={@current_scope}
         collapsed={@admin_sidebar_collapsed}
       />

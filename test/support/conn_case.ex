@@ -50,4 +50,20 @@ defmodule VideoConferenceWeb.ConnCase do
     conn
     |> Phoenix.ConnTest.init_test_session(%{admin_token: token})
   end
+
+  @doc """
+  Setup helper that logs the given `admin` in through the stream server
+  admin portal session.
+
+      test "renders the portal dashboard", %{conn: conn, admin: admin} do
+        conn = conn |> log_in_stream_server_admin(admin) |> get("/stream-server-admin")
+      end
+
+  """
+  def log_in_stream_server_admin(conn, admin) do
+    token = VideoConference.StreamServerAdminPortal.Accounts.generate_session_token(admin)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{stream_server_admin_token: token})
+  end
 end

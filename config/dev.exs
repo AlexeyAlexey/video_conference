@@ -21,6 +21,10 @@ config :video_conference, VideoConference.Repo,
   database: System.get_env("DATABASE_PATH"),
   pool_size: 3
 
+config :video_conference, VideoConference.StreamServerAdminPortal.Repo,
+  database: System.get_env("STREAM_SERVER_ADMIN_DATABASE_PATH"),
+  pool_size: 3
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #

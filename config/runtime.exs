@@ -114,6 +114,10 @@ if config_env() == :prod do
     database: System.get_env("DATABASE_PATH"),
     pool_size: 3
 
+  config :video_conference, VideoConference.StreamServerAdminPortal.Repo,
+    database: System.get_env("STREAM_SERVER_ADMIN_DATABASE_PATH"),
+    pool_size: 3
+
   config :video_conference, :telephone_switchboard, private_key: telephone_switchboard_private_key
 
   config :video_conference, :stream_server,

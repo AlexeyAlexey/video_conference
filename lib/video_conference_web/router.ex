@@ -61,6 +61,8 @@ defmodule VideoConferenceWeb.Router do
 
   forward "/admin", VideoConferenceWeb.AdminPortal.Router
 
+  forward "/stream-server-admin", VideoConferenceWeb.StreamServerAdminPortal.Router
+
   # Other scopes may use custom stacks.
   # scope "/api", VideoConferenceWeb do
   #   pipe_through :api
