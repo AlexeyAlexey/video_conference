@@ -20,6 +20,32 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.DashboardLive do
 
         <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <.link
+            navigate="/stream-server-admin/applications"
+            id="applications-link"
+            class="card bg-base-200 hover:bg-base-300 transition-colors p-4 sm:p-6"
+          >
+            <div class="flex items-center gap-3">
+              <.icon name="hero-squares-2x2" class="size-6" />
+              <div>
+                <h2 class="font-semibold">Applications</h2>
+                <p class="text-sm opacity-70">Manage third-party applications</p>
+              </div>
+            </div>
+          </.link>
+          <.link
+            navigate="/stream-server-admin/api-keys"
+            id="api-keys-link"
+            class="card bg-base-200 hover:bg-base-300 transition-colors p-4 sm:p-6"
+          >
+            <div class="flex items-center gap-3">
+              <.icon name="hero-key" class="size-6" />
+              <div>
+                <h2 class="font-semibold">API keys</h2>
+                <p class="text-sm opacity-70">Manage application credentials</p>
+              </div>
+            </div>
+          </.link>
+          <.link
             navigate="/stream-server-admin/settings"
             id="settings-link"
             class="card bg-base-200 hover:bg-base-300 transition-colors p-4 sm:p-6"

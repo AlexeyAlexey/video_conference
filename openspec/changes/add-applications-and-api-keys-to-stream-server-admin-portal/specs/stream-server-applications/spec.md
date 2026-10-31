@@ -86,7 +86,7 @@ displayed again afterwards.
 #### Scenario: Secret shown once on creation
 
 - **WHEN** a portal admin creates an API key
-- **THEN** the generated plaintext secret is displayed once on screen so it can be copied
+- **THEN** the generated plaintext secret is displayed once on screen with a copy-to-clipboard control so it can be copied
 
 #### Scenario: Secret not shown afterwards
 
@@ -134,6 +134,17 @@ be able to create, edit name/description/enabled, and delete it.
 
 - **WHEN** a portal admin deletes an API key
 - **THEN** the key record is removed and no longer listed
+
+### Requirement: Truncated descriptions in portal lists
+
+Descriptions longer than 50 characters SHALL be truncated with an
+ellipsis in the applications and API keys lists, and SHALL expand to the
+full text when activated.
+
+#### Scenario: Expand a truncated description
+
+- **WHEN** a portal admin activates a truncated description in an applications or API keys list
+- **THEN** the full description is displayed
 
 ### Requirement: Default application and API key seeded at deploy
 

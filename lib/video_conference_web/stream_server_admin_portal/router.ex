@@ -34,10 +34,22 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
       ] do
       live "/", DashboardLive, :index
       live "/settings", SettingsLive, :edit
+      live "/applications", ApplicationsLive, :index
+      live "/applications/new", ApplicationsLive, :new
+      live "/applications/:id/edit", ApplicationsLive, :edit
+      live "/api-keys", ApiKeysLive, :index
+      live "/api-keys/new", ApiKeysLive, :new
+      live "/api-keys/:id/edit", ApiKeysLive, :edit
 
       # Mirror routes for LiveView URL resolution only, see the note below.
       live "/stream-server-admin", DashboardLive, :index
       live "/stream-server-admin/settings", SettingsLive, :edit
+      live "/stream-server-admin/applications", ApplicationsLive, :index
+      live "/stream-server-admin/applications/new", ApplicationsLive, :new
+      live "/stream-server-admin/applications/:id/edit", ApplicationsLive, :edit
+      live "/stream-server-admin/api-keys", ApiKeysLive, :index
+      live "/stream-server-admin/api-keys/new", ApiKeysLive, :new
+      live "/stream-server-admin/api-keys/:id/edit", ApiKeysLive, :edit
     end
   end
 
