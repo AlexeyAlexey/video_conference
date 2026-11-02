@@ -65,6 +65,13 @@ certificate.
   blank certificate hash
 - **THEN** the stored `cert_hash` is cleared
 
+#### Scenario: Copying the certificate hash
+
+- **WHEN** the stream servers list renders a server with a certificate
+  hash
+- **THEN** a copy control is offered that copies the hash to the
+  clipboard
+
 ### Requirement: Portal stream servers list
 
 An authenticated portal admin SHALL be able to open a page at
@@ -158,7 +165,9 @@ assignments.
 
 The portal stream servers list SHALL offer a filter limiting the list to
 servers assigned to a chosen application, including an option for all
-servers and an option for servers with no assigned application.
+servers and an option for servers with no assigned application. The
+filter control SHALL offer a search field filtering the application
+options.
 
 #### Scenario: Filtering by an application
 
@@ -174,6 +183,12 @@ servers and an option for servers with no assigned application.
 
 - **WHEN** a portal admin picks the all-servers option in the filter
 - **THEN** every portal stream server is listed again
+
+#### Scenario: Searching the filter applications
+
+- **WHEN** a portal admin types in the filter's search field
+- **THEN** only applications matching the search text are offered for
+  selection
 
 ### Requirement: Responsive stream servers page
 

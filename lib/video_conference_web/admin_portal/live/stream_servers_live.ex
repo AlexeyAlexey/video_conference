@@ -2,7 +2,8 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLive do
   use VideoConferenceWeb, :live_view
 
   alias VideoConference.AdminPortal.StreamServers
-  alias VideoConference.AdminPortal.StreamServers.{Countries, StreamServer}
+  alias VideoConference.AdminPortal.StreamServers.StreamServer
+  alias VideoConference.StreamServers.Countries
   alias VideoConferenceWeb.DropdownComponent
 
   def mount(_params, _session, socket) do

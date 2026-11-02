@@ -1,4 +1,4 @@
-defmodule VideoConference.AdminPortal.StreamServers.Countries do
+defmodule VideoConference.StreamServers.Countries do
   @moduledoc """
   The fixed set of countries supported as a stream server location.
 

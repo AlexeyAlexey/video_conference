@@ -8,6 +8,8 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
   alias VideoConference.StreamServerAdminPortal.Accounts.{Admin, Scope}
   alias VideoConference.StreamServerAdminPortal.Applications
   alias VideoConference.StreamServerAdminPortal.Applications.{ApiKey, Application}
+  alias VideoConference.StreamServerAdminPortal.StreamServers
+  alias VideoConference.StreamServerAdminPortal.StreamServers.StreamServer
 
   def unique_admin_email, do: "admin#{System.unique_integer([:positive])}@example.com"
   def valid_admin_password, do: "hello world!"
@@ -53,5 +55,16 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
       |> Applications.create_api_key()
 
     api_key
+  end
+
+  def unique_stream_server_name, do: "stream-server-#{System.unique_integer([:positive])}"
+
+  def stream_server_fixture(attrs \\ %{}) do
+    {:ok, %StreamServer{} = stream_server} =
+      attrs
+      |> Enum.into(%{"name" => unique_stream_server_name()})
+      |> StreamServers.create_stream_server()
+
+    stream_server
   end
 end

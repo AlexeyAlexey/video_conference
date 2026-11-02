@@ -6,7 +6,7 @@ defmodule VideoConferenceWeb.AdminPortal.StreamServersLiveTest do
   import VideoConference.StreamServersFixtures
 
   alias VideoConference.AdminPortal.StreamServers
-  alias VideoConference.AdminPortal.StreamServers.Countries
+  alias VideoConference.StreamServers.Countries
 
   setup %{conn: conn} do
     admin = admin_fixture()

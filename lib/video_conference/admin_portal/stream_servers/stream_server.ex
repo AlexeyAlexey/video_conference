@@ -9,7 +9,7 @@ defmodule VideoConference.AdminPortal.StreamServers.StreamServer do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias VideoConference.AdminPortal.StreamServers.Countries
+  alias VideoConference.StreamServers.Countries
 
   schema "stream_servers" do
     field :name, :string

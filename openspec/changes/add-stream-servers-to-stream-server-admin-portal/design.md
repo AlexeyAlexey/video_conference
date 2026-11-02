@@ -81,9 +81,14 @@ which is single-select) is acceptable since it isn't a native `<select>`.
 
 ### D5: Filter via `?application_id=` query param handled in `handle_params`
 
-The index's filter is a `DropdownComponent` (single select) whose picked
+The index's filter is a `searchable` `DropdownComponent` (single
+select) whose picked
 value `push_patch`es to `?application_id=<id>`,
-`?application_id=unassigned`, or no param for all servers. Keeping the
+`?application_id=unassigned`, or no param for all servers. The component
+is wrapped in a `<.form>` (`onsubmit` prevented): LiveView serializes
+`phx-change` through the enclosing form, and a formless input throws
+client-side before the `filter` event is ever pushed — which silently
+broke the search field. Keeping the
 filter in the URL survives patch navigation (`:new`/`:edit`/`:assign`
 and back) and makes filtered views shareable. The list query applies the
 filter with a join on `application_stream_servers`, or `WHERE NOT
