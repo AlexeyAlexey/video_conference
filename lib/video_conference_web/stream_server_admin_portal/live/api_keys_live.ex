@@ -275,7 +275,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLive do
               <tbody>
                 <tr :for={api_key <- application.api_keys} id={"api-key-row-#{api_key.id}"}>
                   <td>{api_key.name}</td>
-                  <td class="max-w-64">
+                  <td class="max-w-64 break-all">
                     <button
                       :if={description_long?(api_key.description)}
                       type="button"
@@ -288,20 +288,20 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLive do
                           to: "#api-key-description-full-#{api_key.id}"
                         )
                       }
-                      class="cursor-pointer text-left"
+                      class="w-full cursor-pointer text-left"
                       title="Show the full description"
                     >
-                      <span id={"api-key-description-short-#{api_key.id}"}>
+                      <span id={"api-key-description-short-#{api_key.id}"} class="break-all">
                         {truncated_description(api_key.description)}
                       </span>
                       <span
                         id={"api-key-description-full-#{api_key.id}"}
-                        class="hidden whitespace-pre-wrap"
+                        class="hidden whitespace-pre-wrap break-all"
                       >
                         {api_key.description}
                       </span>
                     </button>
-                    <span :if={not description_long?(api_key.description)}>
+                    <span :if={not description_long?(api_key.description)} class="break-all">
                       {api_key.description}
                     </span>
                   </td>

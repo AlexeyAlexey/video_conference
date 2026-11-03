@@ -2,16 +2,21 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   @moduledoc """
   The StreamServerAdminPortal Applications context.
 
-  Manages third-party applications that integrate with the stream server
-  and the API keys that authenticate them. API key secrets are generated
-  at creation, returned once as `plaintext_key`, and persisted only as a
+  Manages third-party applications that integrate with the stream server,
+  the API keys that authenticate them, and the public stream server keys
+  that verify their signed JWTs. API key secrets are generated at
+  creation, returned once as `plaintext_key`, and persisted only as a
   bcrypt hash.
   """
 
   import Ecto.Query, warn: false
   alias VideoConference.StreamServerAdminPortal.Repo
 
-  alias VideoConference.StreamServerAdminPortal.Applications.{ApiKey, Application}
+  alias VideoConference.StreamServerAdminPortal.Applications.{
+    ApiKey,
+    Application,
+    PublicStreamServerKey
+  }
 
   ## Applications
 
@@ -35,6 +40,29 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
         preload: [api_keys: ^keys]
     )
   end
+
+  @doc """
+  Returns all applications ordered by name, each with its public stream
+  server keys preloaded (ordered by name). Used by the grouped public
+  keys portal page.
+
+  Options:
+
+    * `:application_id` — limits the list to the given application.
+      `nil` or `""` lists every application.
+  """
+  def list_applications_with_public_keys(opts \\ []) do
+    keys = from k in PublicStreamServerKey, order_by: [asc: k.name]
+
+    Application
+    |> filter_by_id(Keyword.get(opts, :application_id))
+    |> order_by([a], asc: a.name)
+    |> preload(public_stream_server_keys: ^keys)
+    |> Repo.all()
+  end
+
+  defp filter_by_id(query, application_id) when application_id in [nil, ""], do: query
+  defp filter_by_id(query, application_id), do: from(a in query, where: a.id == ^application_id)
 
   @doc """
   Gets a single application.
@@ -62,8 +90,8 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Deletes an application. Its API keys are removed by the database's
-  `on_delete: :delete_all` foreign key.
+  Deletes an application. Its API keys and public stream server keys are
+  removed by the database's `on_delete: :delete_all` foreign keys.
   """
   def delete_application(%Application{} = application) do
     Repo.delete(application)
@@ -146,5 +174,49 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   """
   def generate_api_key_secret do
     "ssak_" <> Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+  end
+
+  ## Public stream server keys
+
+  @doc """
+  Gets a single public stream server key.
+
+  Raises `Ecto.NoResultsError` if the key does not exist.
+  """
+  def get_public_stream_server_key!(id), do: Repo.get!(PublicStreamServerKey, id)
+
+  @doc """
+  Creates a public stream server key holding existing public key
+  material. The record's generated UUID serves as its public key id.
+  """
+  def create_public_stream_server_key(attrs \\ %{}) do
+    %PublicStreamServerKey{}
+    |> PublicStreamServerKey.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Updates a public stream server key's name, public key material,
+  disabled flag, description, or parent application.
+  """
+  def update_public_stream_server_key(%PublicStreamServerKey{} = key, attrs) do
+    key
+    |> PublicStreamServerKey.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Deletes a public stream server key.
+  """
+  def delete_public_stream_server_key(%PublicStreamServerKey{} = key) do
+    Repo.delete(key)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking public stream server key
+  changes.
+  """
+  def change_public_stream_server_key(%PublicStreamServerKey{} = key, attrs \\ %{}) do
+    PublicStreamServerKey.changeset(key, attrs)
   end
 end

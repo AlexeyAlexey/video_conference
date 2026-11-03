@@ -68,14 +68,28 @@ redirected to the portal sign-in page.
 #### Scenario: Public key id is the record id
 
 - **WHEN** the list renders a key
-- **THEN** the public key id column shows the key record's UUID
+- **THEN** the public key id column shows the key record's UUID with a
+  copy-to-clipboard control next to it
+
+#### Scenario: Copying a public key id
+
+- **WHEN** a portal admin clicks the copy control next to a key's public
+  key id
+- **THEN** the key record's UUID is copied to the clipboard
 
 #### Scenario: Long descriptions are expandable
 
-- **WHEN** a key's description exceeds the preview length
+- **WHEN** a key's description exceeds 50 characters
 - **THEN** the list shows a truncated preview ending with `...`, and
   clicking it reveals the full description (and clicking again collapses
   it)
+
+#### Scenario: Descriptions wrap inside their column
+
+- **WHEN** a key's description — truncated or full — is wider than the
+  description column, including text without spaces
+- **THEN** it wraps inside the column instead of overflowing or
+  overlapping other columns
 
 #### Scenario: No applications message
 

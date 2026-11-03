@@ -8,9 +8,9 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.AdminComponents do
   Renders the stream server admin portal sidebar with the portal
   navigation: a link to the dashboard, a "Stream servers" item, an
   "Applications" item with its
-  "API keys" sub-item, the signed-in admin's email, a link to the
-  settings page with its "Change password" sub-item, and a log out
-  button. Rendered only when an admin is authenticated.
+  "API keys" and "Public keys" sub-items, the signed-in admin's email, a
+  link to the settings page with its "Change password" sub-item, and a
+  log out button. Rendered only when an admin is authenticated.
   """
   attr :current_scope, :map,
     required: true,
@@ -62,6 +62,14 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.AdminComponents do
             <li>
               <.link id="sidebar-api-keys-link" navigate="/stream-server-admin/api-keys">
                 API keys
+              </.link>
+            </li>
+            <li>
+              <.link
+                id="sidebar-public-keys-link"
+                navigate="/stream-server-admin/applications/public-stream-server-keys"
+              >
+                Public keys
               </.link>
             </li>
           </ul>

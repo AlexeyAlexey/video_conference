@@ -104,8 +104,14 @@ portal ids are UUID strings. Routes: `/applications/public-stream-server-keys`,
 `/stream-server-admin`-prefixed mirrors. They cannot collide with
 `/applications/:id/edit` (different arity / literal tails) but are still
 placed before the `:id` routes for readability. The "Public key Id"
-column renders `key.id`; the page description explains the id identifies
-which public key verifies the application's signed JWT.
+column renders `key.id` next to a copy-to-clipboard button (same
+`navigator.clipboard.writeText` pattern as the stream servers page's
+cert hash); the page description explains the id identifies
+which public key verifies the application's signed JWT. Long
+descriptions truncate at 50 characters with a `...` preview that expands
+on click, and both preview and full text wrap (`break-all`, plus
+`whitespace-pre-wrap` for the full text) inside the column so unbroken
+text never overflows or overlaps other columns.
 
 ### D5: Sidebar sub-item under "Applications"
 

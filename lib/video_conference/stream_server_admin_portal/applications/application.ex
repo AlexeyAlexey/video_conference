@@ -8,7 +8,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.Application do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias VideoConference.StreamServerAdminPortal.Applications.ApiKey
+  alias VideoConference.StreamServerAdminPortal.Applications.{ApiKey, PublicStreamServerKey}
   alias VideoConference.StreamServerAdminPortal.Repo
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -19,6 +19,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.Application do
     field :enabled, :boolean, default: true
 
     has_many :api_keys, ApiKey
+    has_many :public_stream_server_keys, PublicStreamServerKey
 
     timestamps()
   end
