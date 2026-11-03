@@ -19,5 +19,5 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Validate the page in the integrated browser: sidebar sub-item under Applications, grouped-by-application list with UUID public key ids, application filter (select, clear, search), Add/Edit/Remove flows, dropdown, and responsive layout at mobile and desktop widths
+- [x] 4.1 Validate the page in the integrated browser: sidebar sub-item under Applications, grouped-by-application list with UUID public key ids, application filter (select, clear, search), Add/Edit/Remove flows, dropdown, and responsive layout at mobile and desktop widths
 - [x] 4.2 Run `dotenv -e .env.test mix precommit` and fix any warnings, unused deps, formatting, or test failures
