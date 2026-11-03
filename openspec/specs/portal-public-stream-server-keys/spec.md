@@ -12,12 +12,13 @@ material, and the grouped-by-application listing.
 ### Requirement: Portal stream server public key record
 
 The system SHALL persist each portal stream server public key in the
-portal database with: a UUID primary key, an optional `name`, a `key`, a
-required `application_id` association to a portal application, an
-`enabled` flag defaulting to true, and an optional `description`.
+portal database with: a UUID primary key, an optional `name`, a required
+`key`, a required `application_id` association to a portal application,
+an `enabled` flag defaulting to true, and an optional `description`.
 `name` SHALL NOT be unique. There SHALL be no `key_id` field — the
 record's primary key SHALL serve as the key id — and no `private_key`
-field — the system SHALL store only public key material.
+field — the system SHALL store only public key material. Once created,
+the `key` value SHALL be immutable: no update path SHALL change it.
 
 #### Scenario: Creating a key with required fields
 
@@ -25,6 +26,17 @@ field — the system SHALL store only public key material.
   an application
 - **THEN** it is persisted with `enabled` true and a generated UUID
   that serves as its key id
+
+#### Scenario: Key is required
+
+- **WHEN** a portal stream server public key is saved without a key
+- **THEN** the operation fails and the missing key is reported
+
+#### Scenario: Key is immutable
+
+- **WHEN** any update to an existing portal stream server public key is
+  attempted with a different key value
+- **THEN** the stored key is unchanged
 
 #### Scenario: Name is optional
 
@@ -62,7 +74,27 @@ visitors SHALL be redirected to the portal sign-in page.
 - **WHEN** an authenticated portal admin opens
   `/stream-server-admin/applications/stream-server-public-keys`
 - **THEN** each portal application's keys are listed under that
-  application with name, key id, description, and enabled status
+  application with name, key id, public key, description, and enabled
+  columns
+
+#### Scenario: Public key content is hidden behind a show control
+
+- **WHEN** the list renders a key
+- **THEN** the public key column shows a show control instead of the
+  key's content
+
+#### Scenario: Showing a public key
+
+- **WHEN** a portal admin clicks the show control in a key's public key
+  column
+- **THEN** a modal opens showing the full public key content with a
+  copy-to-clipboard control
+
+#### Scenario: Copying a public key
+
+- **WHEN** a portal admin clicks the copy control in the public key
+  modal
+- **THEN** the full public key content is copied to the clipboard
 
 #### Scenario: Public key id is the record id
 
@@ -74,6 +106,22 @@ visitors SHALL be redirected to the portal sign-in page.
 
 - **WHEN** a portal admin clicks the copy control next to a key's key id
 - **THEN** the key record's UUID is copied to the clipboard
+
+#### Scenario: Enabled shown as a checkbox
+
+- **WHEN** the list renders a key
+- **THEN** the enabled column shows a checkbox that is checked when the
+  key is enabled and unchecked when it is disabled
+
+#### Scenario: Name has an edit control
+
+- **WHEN** the list renders a key
+- **THEN** an edit control is shown next to the key's name
+
+#### Scenario: Description has an edit control
+
+- **WHEN** the list renders a key
+- **THEN** an edit control is shown next to the key's description
 
 #### Scenario: Long descriptions are expandable
 
@@ -130,11 +178,14 @@ URL.
 
 ### Requirement: Portal stream server public keys admin management
 
-An authenticated portal admin SHALL be able to add, edit, and remove
-stream server public keys from the portal page. The add form SHALL offer
-an application dropdown and accept an existing key. Validation errors
-SHALL be shown inline. The page SHALL NOT offer key pair generation and
-SHALL NOT accept private key material.
+An authenticated portal admin SHALL be able to add and remove stream
+server public keys from the portal page, and to rename a key, edit its
+description, change its application, and toggle its enabled flag through
+per-field controls — there SHALL be no whole-row edit form. The add form
+SHALL offer an application dropdown and accept an existing key.
+Validation errors SHALL be shown inline. The page SHALL NOT offer key
+pair generation, SHALL NOT accept private key material, and SHALL NOT
+offer any control that changes an existing key's public key value.
 
 #### Scenario: Add a key
 
@@ -145,17 +196,54 @@ SHALL NOT accept private key material.
 
 #### Scenario: Edit a key
 
-- **WHEN** a portal admin submits the edit form for a key
-- **THEN** the updated attributes are persisted and shown in the list
+- **WHEN** a portal admin changes a key's name, description,
+  application, or enabled flag through its per-field control
+- **THEN** the updated attribute is persisted and shown in the list
+
+#### Scenario: Rename a key
+
+- **WHEN** a portal admin clicks the edit control next to a key's name
+  and submits the modal with a new name
+- **THEN** the key's name is updated and shown in the list
+
+#### Scenario: Edit a key's description
+
+- **WHEN** a portal admin clicks the edit control next to a key's
+  description and submits the modal with a new description
+- **THEN** the key's description is updated and shown in the list
+
+#### Scenario: Toggle a key's enabled flag
+
+- **WHEN** a portal admin clicks a key's enabled checkbox
+- **THEN** the key's enabled flag flips and the checkbox reflects the
+  new state
+
+#### Scenario: Row actions live in a menu
+
+- **WHEN** a portal admin clicks a key's row actions menu control
+- **THEN** a menu opens offering "Change app" and "Remove"
+
+#### Scenario: Change a key's application
+
+- **WHEN** a portal admin picks "Change app" from a key's row actions
+  menu, chooses an application in the modal's dropdown, and confirms
+- **THEN** the key is moved to the chosen application's group in the
+  list
 
 #### Scenario: Remove a key
 
-- **WHEN** a portal admin confirms removal of a key
+- **WHEN** a portal admin picks "Remove" from a key's row actions menu
+  and confirms
 - **THEN** the key is deleted and disappears from the list
+
+#### Scenario: No control changes the public key value
+
+- **WHEN** a portal admin edits any attribute of an existing key
+- **THEN** the key's stored public key value remains unchanged
 
 #### Scenario: Missing application shows error
 
-- **WHEN** a portal admin submits the form without choosing an
+- **WHEN** a portal admin submits the add form without choosing an
   application
 - **THEN** the form shows an inline error and no key is created
 
@@ -171,3 +259,10 @@ inside their container rather than overflowing the page.
   viewport
 - **THEN** the page does not overflow horizontally and each table
   scrolls inside its container
+
+#### Scenario: Modals and menus fit narrow screens
+
+- **WHEN** a modal or a key's row actions menu is opened on a narrow
+  viewport
+- **THEN** it renders inside the viewport without overflowing or being
+  clipped off-screen
