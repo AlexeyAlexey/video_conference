@@ -9,27 +9,26 @@ material, and the grouped-by-application listing.
 
 ## Requirements
 
-### Requirement: Portal public stream server key record
+### Requirement: Portal stream server public key record
 
-The system SHALL persist each portal public stream server key in the
-portal database with: a UUID primary key, an optional `name`, a
-`public_key`, a required `application_id` association to a portal
-application, a `disabled` flag defaulting to false, and an optional
-`description`. `name` SHALL NOT be unique. There SHALL be no
-`public_key_id` field — the record's primary key SHALL serve as the
-public key id — and no `private_key` field — the system SHALL store
-only public key material.
+The system SHALL persist each portal stream server public key in the
+portal database with: a UUID primary key, an optional `name`, a `key`, a
+required `application_id` association to a portal application, an
+`enabled` flag defaulting to true, and an optional `description`.
+`name` SHALL NOT be unique. There SHALL be no `key_id` field — the
+record's primary key SHALL serve as the key id — and no `private_key`
+field — the system SHALL store only public key material.
 
 #### Scenario: Creating a key with required fields
 
-- **WHEN** a portal public stream server key is created with a public
-  key and an application
-- **THEN** it is persisted with `disabled` false and a generated UUID
-  that serves as its public key id
+- **WHEN** a portal stream server public key is created with a key and
+  an application
+- **THEN** it is persisted with `enabled` true and a generated UUID
+  that serves as its key id
 
 #### Scenario: Name is optional
 
-- **WHEN** a portal public stream server key is created without a name
+- **WHEN** a portal stream server public key is created without a name
 - **THEN** it is persisted
 
 #### Scenario: Duplicate names allowed
@@ -45,36 +44,35 @@ only public key material.
 
 #### Scenario: Deleting an application removes its keys
 
-- **WHEN** a portal application that has public stream server keys is
+- **WHEN** a portal application that has stream server public keys is
   deleted
 - **THEN** its keys are deleted as well
 
-### Requirement: Portal public keys admin list
+### Requirement: Portal stream server public keys admin list
 
 An authenticated portal admin SHALL be able to open a page at
-`/stream-server-admin/applications/public-stream-server-keys` listing public stream server
-keys grouped by portal application, with a description explaining that
-each key's id is the public key id that identifies which public key
-verifies the application's signed JWT. Unauthenticated visitors SHALL be
-redirected to the portal sign-in page.
+`/stream-server-admin/applications/stream-server-public-keys` listing
+stream server public keys grouped by portal application, with a
+description explaining that each key's id is the key id that identifies
+which key verifies the application's signed JWT. Unauthenticated
+visitors SHALL be redirected to the portal sign-in page.
 
 #### Scenario: List groups keys by application
 
 - **WHEN** an authenticated portal admin opens
-  `/stream-server-admin/applications/public-stream-server-keys`
+  `/stream-server-admin/applications/stream-server-public-keys`
 - **THEN** each portal application's keys are listed under that
-  application with name, public key id, description, and disabled status
+  application with name, key id, description, and enabled status
 
 #### Scenario: Public key id is the record id
 
 - **WHEN** the list renders a key
-- **THEN** the public key id column shows the key record's UUID with a
+- **THEN** the key id column shows the key record's UUID with a
   copy-to-clipboard control next to it
 
 #### Scenario: Copying a public key id
 
-- **WHEN** a portal admin clicks the copy control next to a key's public
-  key id
+- **WHEN** a portal admin clicks the copy control next to a key's key id
 - **THEN** the key record's UUID is copied to the clipboard
 
 #### Scenario: Long descriptions are expandable
@@ -94,22 +92,24 @@ redirected to the portal sign-in page.
 #### Scenario: No applications message
 
 - **WHEN** an authenticated portal admin opens
-  `/stream-server-admin/applications/public-stream-server-keys` and no portal applications
-  exist
+  `/stream-server-admin/applications/stream-server-public-keys` and no
+  portal applications exist
 - **THEN** a "No applications found" message is shown
 
 #### Scenario: Unauthenticated access
 
-- **WHEN** a visitor opens `/stream-server-admin/applications/public-stream-server-keys`
-  without a portal admin session
+- **WHEN** a visitor opens
+  `/stream-server-admin/applications/stream-server-public-keys` without
+  a portal admin session
 - **THEN** they are redirected to the portal sign-in page
 
-### Requirement: Filter public keys by application
+### Requirement: Filter stream server public keys by application
 
-The portal public keys page SHALL offer a filter limiting the list to a
-chosen application's keys, including an option for all applications. The
-filter control SHALL offer a search field filtering the application
-options, and the choice SHALL be reflected in the page URL.
+The portal stream server public keys page SHALL offer a filter limiting
+the list to a chosen application's keys, including an option for all
+applications. The filter control SHALL offer a search field filtering
+the application options, and the choice SHALL be reflected in the page
+URL.
 
 #### Scenario: Filtering by an application
 
@@ -128,20 +128,20 @@ options, and the choice SHALL be reflected in the page URL.
 - **THEN** only applications matching the search text are offered for
   selection
 
-### Requirement: Portal public keys admin management
+### Requirement: Portal stream server public keys admin management
 
 An authenticated portal admin SHALL be able to add, edit, and remove
-public stream server keys from the portal page. The add form SHALL offer
-an application dropdown and accept an existing public key. Validation
-errors SHALL be shown inline. The page SHALL NOT offer key pair
-generation and SHALL NOT accept private key material.
+stream server public keys from the portal page. The add form SHALL offer
+an application dropdown and accept an existing key. Validation errors
+SHALL be shown inline. The page SHALL NOT offer key pair generation and
+SHALL NOT accept private key material.
 
 #### Scenario: Add a key
 
 - **WHEN** a portal admin submits the add form with an application and
-  an existing public key
+  an existing key
 - **THEN** the key is persisted and appears in the list with its UUID as
-  the public key id
+  the key id
 
 #### Scenario: Edit a key
 
@@ -159,14 +159,15 @@ generation and SHALL NOT accept private key material.
   application
 - **THEN** the form shows an inline error and no key is created
 
-### Requirement: Responsive public keys page
+### Requirement: Responsive stream server public keys page
 
-The portal public keys page SHALL be usable on mobile, tablet, and
-desktop viewports. Data tables SHALL scroll horizontally inside their
-container rather than overflowing the page.
+The portal stream server public keys page SHALL be usable on mobile,
+tablet, and desktop viewports. Data tables SHALL scroll horizontally
+inside their container rather than overflowing the page.
 
 #### Scenario: Grouped tables fit narrow screens
 
-- **WHEN** the public keys list is viewed on a narrow viewport
+- **WHEN** the stream server public keys list is viewed on a narrow
+  viewport
 - **THEN** the page does not overflow horizontally and each table
   scrolls inside its container

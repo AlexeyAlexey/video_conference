@@ -113,12 +113,12 @@ Portal authentication SHALL be independent of the `/admin` admin portal: a sessi
 
 ### Requirement: Portal navigation
 
-Authenticated portal pages SHALL render a left sidebar with the portal's navigation: a link to the dashboard, a "Stream servers" item, an "Applications" item with "API keys" and "Public keys" sub-items, the signed-in admin's email, a link to the settings page, and a log out action. The navigation bar SHALL show the portal brand and an icon button that collapses/expands the sidebar. The log out action SHALL work without client-side JavaScript (form POST with method override to the DELETE route).
+Authenticated portal pages SHALL render a left sidebar with the portal's navigation: a link to the dashboard, a "Stream servers" item, an "Applications" item with "API keys" and "Stream server public keys" sub-items, the signed-in admin's email, a link to the settings page, and a log out action. The navigation bar SHALL show the portal brand and an icon button that collapses/expands the sidebar. The log out action SHALL work without client-side JavaScript (form POST with method override to the DELETE route).
 
 #### Scenario: Navigating via the sidebar
 
 - **WHEN** an authenticated portal admin is on any portal page
-- **THEN** the sidebar shows a link to the dashboard, a "Stream servers" item, an "Applications" item with "API keys" and "Public keys" sub-items, the admin's email, a link to the settings page, and a log out button
+- **THEN** the sidebar shows a link to the dashboard, a "Stream servers" item, an "Applications" item with "API keys" and "Stream server public keys" sub-items, the admin's email, a link to the settings page, and a log out button
 
 #### Scenario: Navigating to settings
 
@@ -147,8 +147,8 @@ Authenticated portal pages SHALL render a left sidebar with the portal's navigat
 
 #### Scenario: Navigating to public keys
 
-- **WHEN** an authenticated portal admin activates the "Public keys" sub-item under "Applications" in the sidebar
-- **THEN** they are taken to the public keys page
+- **WHEN** an authenticated portal admin activates the "Stream server public keys" sub-item under "Applications" in the sidebar
+- **THEN** they are taken to the stream server public keys page
 
 #### Scenario: Log out without JavaScript
 

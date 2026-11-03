@@ -19,7 +19,7 @@
 
 The system SHALL persist each portal stream server public key in the
 portal database with: a UUID primary key, an optional `name`, a `key`, a
-required `application_id` association to a portal application, a
+required `application_id` association to a portal application, an
 `enabled` flag defaulting to true, and an optional `description`.
 `name` SHALL NOT be unique. There SHALL be no `key_id` field — the
 record's primary key SHALL serve as the key id — and no `private_key`
