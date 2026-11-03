@@ -37,16 +37,16 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
       live "/applications", ApplicationsLive, :index
       live "/applications/new", ApplicationsLive, :new
 
-      live "/applications/public-stream-server-keys",
-           PublicStreamServerKeysLive,
+      live "/applications/stream-server-public-keys",
+           StreamServerPublicKeysLive,
            :index
 
-      live "/applications/public-stream-server-keys/new",
-           PublicStreamServerKeysLive,
+      live "/applications/stream-server-public-keys/new",
+           StreamServerPublicKeysLive,
            :new
 
-      live "/applications/public-stream-server-keys/:id/edit",
-           PublicStreamServerKeysLive,
+      live "/applications/stream-server-public-keys/:id/edit",
+           StreamServerPublicKeysLive,
            :edit
 
       live "/applications/:id/edit", ApplicationsLive, :edit
@@ -64,16 +64,16 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
       live "/stream-server-admin/applications", ApplicationsLive, :index
       live "/stream-server-admin/applications/new", ApplicationsLive, :new
 
-      live "/stream-server-admin/applications/public-stream-server-keys",
-           PublicStreamServerKeysLive,
+      live "/stream-server-admin/applications/stream-server-public-keys",
+           StreamServerPublicKeysLive,
            :index
 
-      live "/stream-server-admin/applications/public-stream-server-keys/new",
-           PublicStreamServerKeysLive,
+      live "/stream-server-admin/applications/stream-server-public-keys/new",
+           StreamServerPublicKeysLive,
            :new
 
-      live "/stream-server-admin/applications/public-stream-server-keys/:id/edit",
-           PublicStreamServerKeysLive,
+      live "/stream-server-admin/applications/stream-server-public-keys/:id/edit",
+           StreamServerPublicKeysLive,
            :edit
 
       live "/stream-server-admin/applications/:id/edit", ApplicationsLive, :edit

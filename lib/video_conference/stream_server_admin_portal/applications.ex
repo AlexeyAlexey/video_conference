@@ -3,7 +3,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   The StreamServerAdminPortal Applications context.
 
   Manages third-party applications that integrate with the stream server,
-  the API keys that authenticate them, and the public stream server keys
+  the API keys that authenticate them, and the stream server public keys
   that verify their signed JWTs. API key secrets are generated at
   creation, returned once as `plaintext_key`, and persisted only as a
   bcrypt hash.
@@ -15,7 +15,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   alias VideoConference.StreamServerAdminPortal.Applications.{
     ApiKey,
     Application,
-    PublicStreamServerKey
+    StreamServerPublicKey
   }
 
   ## Applications
@@ -51,13 +51,13 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     * `:application_id` — limits the list to the given application.
       `nil` or `""` lists every application.
   """
-  def list_applications_with_public_keys(opts \\ []) do
-    keys = from k in PublicStreamServerKey, order_by: [asc: k.name]
+  def list_applications_with_stream_server_public_keys(opts \\ []) do
+    keys = from k in StreamServerPublicKey, order_by: [asc: k.name]
 
     Application
     |> filter_by_id(Keyword.get(opts, :application_id))
     |> order_by([a], asc: a.name)
-    |> preload(public_stream_server_keys: ^keys)
+    |> preload(stream_server_public_keys: ^keys)
     |> Repo.all()
   end
 
@@ -90,7 +90,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Deletes an application. Its API keys and public stream server keys are
+  Deletes an application. Its API keys and stream server public keys are
   removed by the database's `on_delete: :delete_all` foreign keys.
   """
   def delete_application(%Application{} = application) do
@@ -176,47 +176,47 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     "ssak_" <> Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
   end
 
-  ## Public stream server keys
+  ## Stream server public keys
 
   @doc """
-  Gets a single public stream server key.
+  Gets a single stream server public key.
 
   Raises `Ecto.NoResultsError` if the key does not exist.
   """
-  def get_public_stream_server_key!(id), do: Repo.get!(PublicStreamServerKey, id)
+  def get_stream_server_public_key!(id), do: Repo.get!(StreamServerPublicKey, id)
 
   @doc """
-  Creates a public stream server key holding existing public key
-  material. The record's generated UUID serves as its public key id.
+  Creates a stream server public key holding existing public key
+  material. The record's generated UUID serves as its key id.
   """
-  def create_public_stream_server_key(attrs \\ %{}) do
-    %PublicStreamServerKey{}
-    |> PublicStreamServerKey.changeset(attrs)
+  def create_stream_server_public_key(attrs \\ %{}) do
+    %StreamServerPublicKey{}
+    |> StreamServerPublicKey.changeset(attrs)
     |> Repo.insert()
   end
 
   @doc """
-  Updates a public stream server key's name, public key material,
-  disabled flag, description, or parent application.
+  Updates a stream server public key's name, public key material,
+  enabled flag, description, or parent application.
   """
-  def update_public_stream_server_key(%PublicStreamServerKey{} = key, attrs) do
+  def update_stream_server_public_key(%StreamServerPublicKey{} = key, attrs) do
     key
-    |> PublicStreamServerKey.changeset(attrs)
+    |> StreamServerPublicKey.changeset(attrs)
     |> Repo.update()
   end
 
   @doc """
-  Deletes a public stream server key.
+  Deletes a stream server public key.
   """
-  def delete_public_stream_server_key(%PublicStreamServerKey{} = key) do
+  def delete_stream_server_public_key(%StreamServerPublicKey{} = key) do
     Repo.delete(key)
   end
 
   @doc """
-  Returns an `%Ecto.Changeset{}` for tracking public stream server key
+  Returns an `%Ecto.Changeset{}` for tracking stream server public key
   changes.
   """
-  def change_public_stream_server_key(%PublicStreamServerKey{} = key, attrs \\ %{}) do
-    PublicStreamServerKey.changeset(key, attrs)
+  def change_stream_server_public_key(%StreamServerPublicKey{} = key, attrs \\ %{}) do
+    StreamServerPublicKey.changeset(key, attrs)
   end
 end

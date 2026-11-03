@@ -1,12 +1,12 @@
-defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive do
+defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive do
   use VideoConferenceWeb, :live_view
 
   alias VideoConference.StreamServerAdminPortal.Applications
-  alias VideoConference.StreamServerAdminPortal.Applications.PublicStreamServerKey
+  alias VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKey
   alias VideoConferenceWeb.DropdownComponent
 
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Public Keys")}
+    {:ok, assign(socket, page_title: "Stream Server Public Keys")}
   end
 
   def handle_params(params, _uri, socket) do
@@ -19,7 +19,9 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
       |> assign(:filter_form, filter_form(application_filter))
       |> assign(
         :applications,
-        Applications.list_applications_with_public_keys(application_id: application_filter)
+        Applications.list_applications_with_stream_server_public_keys(
+          application_id: application_filter
+        )
       )
       |> apply_action(socket.assigns.live_action, params)
 
@@ -31,50 +33,54 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
   end
 
   defp apply_action(socket, :index, _params) do
-    assign(socket, page_title: "Public Keys", public_stream_server_key: nil, form: nil)
+    assign(socket,
+      page_title: "Stream Server Public Keys",
+      stream_server_public_key: nil,
+      form: nil
+    )
   end
 
   defp apply_action(socket, :new, _params) do
-    key = %PublicStreamServerKey{}
+    key = %StreamServerPublicKey{}
 
     socket
-    |> assign(page_title: "Add Public Key", public_stream_server_key: key)
-    |> assign_form(Applications.change_public_stream_server_key(key))
+    |> assign(page_title: "Add Stream Server Public Key", stream_server_public_key: key)
+    |> assign_form(Applications.change_stream_server_public_key(key))
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
-    key = Applications.get_public_stream_server_key!(id)
+    key = Applications.get_stream_server_public_key!(id)
 
     socket
-    |> assign(page_title: "Edit #{key.name}", public_stream_server_key: key)
-    |> assign_form(Applications.change_public_stream_server_key(key))
+    |> assign(page_title: "Edit #{key.name}", stream_server_public_key: key)
+    |> assign_form(Applications.change_stream_server_public_key(key))
   end
 
-  def handle_event("validate", %{"public_stream_server_key" => key_params}, socket) do
+  def handle_event("validate", %{"stream_server_public_key" => key_params}, socket) do
     changeset =
-      socket.assigns.public_stream_server_key
-      |> Applications.change_public_stream_server_key(key_params)
+      socket.assigns.stream_server_public_key
+      |> Applications.change_stream_server_public_key(key_params)
       |> Map.put(:action, :validate)
 
     {:noreply, assign_form(socket, changeset)}
   end
 
-  def handle_event("save", %{"public_stream_server_key" => key_params}, socket) do
+  def handle_event("save", %{"stream_server_public_key" => key_params}, socket) do
     save_key(socket, socket.assigns.live_action, key_params)
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    key = Applications.get_public_stream_server_key!(id)
+    key = Applications.get_stream_server_public_key!(id)
 
-    case Applications.delete_public_stream_server_key(key) do
+    case Applications.delete_stream_server_public_key(key) do
       {:ok, _key} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Public key removed")
+         |> put_flash(:info, "Stream server public key removed")
          |> assign_applications()}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "The public key cannot be removed")}
+        {:noreply, put_flash(socket, :error, "The stream server public key cannot be removed")}
     end
   end
 
@@ -92,11 +98,11 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
   end
 
   defp save_key(socket, :new, key_params) do
-    case Applications.create_public_stream_server_key(key_params) do
+    case Applications.create_stream_server_public_key(key_params) do
       {:ok, _key} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Public key added")
+         |> put_flash(:info, "Stream server public key added")
          |> push_patch(to: index_path(socket.assigns.application_filter))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -105,14 +111,14 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
   end
 
   defp save_key(socket, :edit, key_params) do
-    case Applications.update_public_stream_server_key(
-           socket.assigns.public_stream_server_key,
+    case Applications.update_stream_server_public_key(
+           socket.assigns.stream_server_public_key,
            key_params
          ) do
       {:ok, _key} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Public key updated")
+         |> put_flash(:info, "Stream server public key updated")
          |> push_patch(to: index_path(socket.assigns.application_filter))}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -123,7 +129,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
   defp assign_applications(socket) do
     assign(socket,
       applications:
-        Applications.list_applications_with_public_keys(
+        Applications.list_applications_with_stream_server_public_keys(
           application_id: socket.assigns.application_filter
         )
     )
@@ -134,11 +140,11 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
   end
 
   defp index_path(application_filter) when application_filter in [nil, ""],
-    do: "/stream-server-admin/applications/public-stream-server-keys"
+    do: "/stream-server-admin/applications/stream-server-public-keys"
 
   defp index_path(application_filter),
     do:
-      "/stream-server-admin/applications/public-stream-server-keys?application_id=#{application_filter}"
+      "/stream-server-admin/applications/stream-server-public-keys?application_id=#{application_filter}"
 
   defp filter_query(application_filter) when application_filter in [nil, ""], do: ""
   defp filter_query(application_filter), do: "?application_id=#{application_filter}"
@@ -160,16 +166,16 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
     >
       <div class="mx-auto w-full px-2 sm:px-0">
         <.header>
-          Public Keys
-          <:subtitle>Public stream server keys registered for each application</:subtitle>
+          Stream Server Public Keys
+          <:subtitle>Stream server public keys registered for each application</:subtitle>
           <:actions>
             <.link
               :if={@live_action == :index}
               patch={
-                "/stream-server-admin/applications/public-stream-server-keys/new" <>
+                "/stream-server-admin/applications/stream-server-public-keys/new" <>
                   filter_query(@application_filter)
               }
-              id="add-public-key-link"
+              id="add-key-link"
               class="btn btn-primary btn-sm"
             >
               Add key
@@ -177,9 +183,9 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
           </:actions>
         </.header>
 
-        <p id="public-keys-description" class="mb-6 text-sm opacity-70">
-          Each public key below belongs to an application. The portal assigns it a
-          public key id — the key record's own id — which a stream server uses to
+        <p id="keys-description" class="mb-6 text-sm opacity-70">
+          Each stream server public key below belongs to an application. The portal assigns it a
+          key id — the key record's own id — which a stream server uses to
           pick the public key that verifies the signed JWT the application presents
           when a participant connects (audio/video/events).
         </p>
@@ -209,16 +215,18 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
 
         <div
           :if={@live_action in [:new, :edit]}
-          id="public-key-form-card"
+          id="key-form-card"
           class="card bg-base-200 mb-6"
         >
           <div class="card-body">
             <h2 class="card-title">
-              {if @live_action == :new, do: "Add public key", else: "Edit public key"}
+              {if @live_action == :new,
+                do: "Add stream server public key",
+                else: "Edit stream server public key"}
             </h2>
             <.form
               for={@form}
-              id="public-key-form"
+              id="key-form"
               phx-change="validate"
               phx-submit="save"
               class="space-y-2"
@@ -239,15 +247,15 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
                 on_change={fn id -> send(self(), {:application_picked, id}) end}
               />
               <.input
-                field={@form[:public_key]}
+                field={@form[:key]}
                 type="textarea"
-                label="Public key"
+                label="Key"
                 autocomplete="off"
               />
               <.input
-                field={@form[:disabled]}
+                field={@form[:enabled]}
                 type="checkbox"
-                label="Disabled"
+                label="Enabled"
               />
               <.input
                 field={@form[:description]}
@@ -261,7 +269,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
                 </.button>
                 <.link
                   patch={index_path(@application_filter)}
-                  id="cancel-public-key-form"
+                  id="cancel-key-form"
                   class="btn btn-ghost"
                 >
                   Cancel
@@ -292,18 +300,18 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
             </span>
           </h3>
           <p
-            :if={application.public_stream_server_keys == []}
-            id={"no-public-keys-#{application.id}"}
+            :if={application.stream_server_public_keys == []}
+            id={"no-keys-#{application.id}"}
             class="text-sm opacity-60"
           >
-            No public keys yet
+            No stream server public keys yet
           </p>
-          <div :if={application.public_stream_server_keys != []} class="overflow-x-auto">
-            <table id={"public-keys-table-#{application.id}"} class="table table-sm sm:table-md">
+          <div :if={application.stream_server_public_keys != []} class="overflow-x-auto">
+            <table id={"keys-table-#{application.id}"} class="table table-sm sm:table-md">
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Public key Id</th>
+                  <th>Key Id</th>
                   <th>Description</th>
                   <th>Status</th>
                   <th></th>
@@ -311,21 +319,21 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
               </thead>
               <tbody>
                 <tr
-                  :for={key <- application.public_stream_server_keys}
-                  id={"public-key-row-#{key.id}"}
+                  :for={key <- application.stream_server_public_keys}
+                  id={"key-row-#{key.id}"}
                 >
                   <td>{key.name}</td>
-                  <td class="whitespace-nowrap" id={"public-key-id-#{key.id}"}>
+                  <td class="whitespace-nowrap" id={"key-id-#{key.id}"}>
                     {key.id}
-                    <span id={"public-key-id-value-#{key.id}"} class="hidden">
+                    <span id={"key-id-value-#{key.id}"} class="hidden">
                       {key.id}
                     </span>
                     <button
                       type="button"
-                      id={"copy-public-key-id-#{key.id}"}
-                      onclick={"navigator.clipboard.writeText(document.getElementById('public-key-id-value-#{key.id}').textContent.trim())"}
+                      id={"copy-key-id-#{key.id}"}
+                      onclick={"navigator.clipboard.writeText(document.getElementById('key-id-value-#{key.id}').textContent.trim())"}
                       class="btn btn-ghost btn-xs"
-                      title="Copy public key id"
+                      title="Copy key id"
                     >
                       <.icon name="hero-document-duplicate" class="size-4" />
                     </button>
@@ -359,20 +367,20 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.PublicStreamServerKeysLive 
                       {key.description}
                     </span>
                   </td>
-                  <td>{if key.disabled, do: "Disabled", else: "Enabled"}</td>
+                  <td>{if key.enabled, do: "Enabled", else: "Disabled"}</td>
                   <td class="text-right whitespace-nowrap">
                     <.link
                       patch={
-                        "/stream-server-admin/applications/public-stream-server-keys/#{key.id}/edit" <>
+                        "/stream-server-admin/applications/stream-server-public-keys/#{key.id}/edit" <>
                           filter_query(@application_filter)
                       }
-                      id={"edit-public-key-#{key.id}"}
+                      id={"edit-key-#{key.id}"}
                       class="btn btn-ghost btn-xs"
                     >
                       Edit
                     </.link>
                     <button
-                      id={"delete-public-key-#{key.id}"}
+                      id={"delete-key-#{key.id}"}
                       type="button"
                       phx-click="delete"
                       phx-value-id={key.id}

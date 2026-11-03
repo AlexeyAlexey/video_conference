@@ -1,8 +1,8 @@
-defmodule VideoConference.StreamServerAdminPortal.Repo.Migrations.CreatePublicStreamServerKeys do
+defmodule VideoConference.StreamServerAdminPortal.Repo.Migrations.CreateStreamServerPublicKeys do
   use Ecto.Migration
 
   def change do
-    create table(:public_stream_server_keys, primary_key: false) do
+    create table(:stream_server_public_keys, primary_key: false) do
       add :id, :binary_id, primary_key: true
 
       add :application_id,
@@ -10,8 +10,8 @@ defmodule VideoConference.StreamServerAdminPortal.Repo.Migrations.CreatePublicSt
           null: false
 
       add :name, :string
-      add :public_key, :text, null: false
-      add :disabled, :boolean, default: false, null: false
+      add :key, :text, null: false
+      add :enabled, :boolean, default: true, null: false
       add :description, :text
 
       timestamps()

@@ -11,7 +11,7 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
   alias VideoConference.StreamServerAdminPortal.Applications.{
     ApiKey,
     Application,
-    PublicStreamServerKey
+    StreamServerPublicKey
   }
 
   alias VideoConference.StreamServerAdminPortal.StreamServers
@@ -63,21 +63,21 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
     api_key
   end
 
-  def unique_public_stream_server_key_name,
-    do: "public-key-#{System.unique_integer([:positive])}"
+  def unique_stream_server_public_key_name,
+    do: "key-#{System.unique_integer([:positive])}"
 
   def valid_public_key_pem,
     do: "-----BEGIN PUBLIC KEY-----\nfake-public-key\n-----END PUBLIC KEY-----"
 
-  def public_stream_server_key_fixture(%Application{} = application, attrs \\ %{}) do
-    {:ok, %PublicStreamServerKey{} = key} =
+  def stream_server_public_key_fixture(%Application{} = application, attrs \\ %{}) do
+    {:ok, %StreamServerPublicKey{} = key} =
       attrs
       |> Enum.into(%{
-        "name" => unique_public_stream_server_key_name(),
-        "public_key" => valid_public_key_pem()
+        "name" => unique_stream_server_public_key_name(),
+        "key" => valid_public_key_pem()
       })
       |> Map.put("application_id", application.id)
-      |> Applications.create_public_stream_server_key()
+      |> Applications.create_stream_server_public_key()
 
     key
   end

@@ -6,7 +6,7 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
   alias VideoConference.StreamServerAdminPortal.Applications.{
     ApiKey,
     Application,
-    PublicStreamServerKey
+    StreamServerPublicKey
   }
 
   alias VideoConference.StreamServerAdminPortal.Repo, as: PortalRepo
@@ -194,23 +194,23 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
-  describe "create_public_stream_server_key/1" do
-    test "creates a key with a generated UUID that serves as its public key id" do
+  describe "create_stream_server_public_key/1" do
+    test "creates a key with a generated UUID that serves as its key id" do
       application = application_fixture()
 
-      {:ok, %PublicStreamServerKey{} = key} =
-        Applications.create_public_stream_server_key(%{
+      {:ok, %StreamServerPublicKey{} = key} =
+        Applications.create_stream_server_public_key(%{
           "name" => "key one",
-          "public_key" => valid_public_key_pem(),
+          "key" => valid_public_key_pem(),
           "application_id" => application.id,
           "description" => "desc"
         })
 
       assert {:ok, _} = Ecto.UUID.cast(key.id)
       assert key.name == "key one"
-      assert key.public_key == valid_public_key_pem()
+      assert key.key == valid_public_key_pem()
       assert key.application_id == application.id
-      assert key.disabled == false
+      assert key.enabled == true
       assert key.description == "desc"
       assert key.inserted_at
       assert key.updated_at
@@ -219,9 +219,9 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     test "creates a key without a name" do
       application = application_fixture()
 
-      {:ok, %PublicStreamServerKey{} = key} =
-        Applications.create_public_stream_server_key(%{
-          "public_key" => valid_public_key_pem(),
+      {:ok, %StreamServerPublicKey{} = key} =
+        Applications.create_stream_server_public_key(%{
+          "key" => valid_public_key_pem(),
           "application_id" => application.id
         })
 
@@ -230,12 +230,12 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
     test "allows duplicate names within the same application" do
       application = application_fixture()
-      key = public_stream_server_key_fixture(application)
+      key = stream_server_public_key_fixture(application)
 
       {:ok, other} =
-        Applications.create_public_stream_server_key(%{
+        Applications.create_stream_server_public_key(%{
           "name" => key.name,
-          "public_key" => valid_public_key_pem(),
+          "key" => valid_public_key_pem(),
           "application_id" => application.id
         })
 
@@ -243,22 +243,22 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert other.id != key.id
     end
 
-    test "returns an error changeset without a public key" do
+    test "returns an error changeset without a key" do
       application = application_fixture()
 
       {:error, changeset} =
-        Applications.create_public_stream_server_key(%{
+        Applications.create_stream_server_public_key(%{
           "name" => "key one",
           "application_id" => application.id
         })
 
-      assert %{public_key: ["can't be blank"]} = errors_on(changeset)
+      assert %{key: ["can't be blank"]} = errors_on(changeset)
     end
 
     test "returns an error changeset without an application" do
       {:error, changeset} =
-        Applications.create_public_stream_server_key(%{
-          "public_key" => valid_public_key_pem()
+        Applications.create_stream_server_public_key(%{
+          "key" => valid_public_key_pem()
         })
 
       assert %{application_id: ["can't be blank"]} = errors_on(changeset)
@@ -266,128 +266,131 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
     test "raises a constraint error for a nonexistent application" do
       assert_raise Ecto.ConstraintError, fn ->
-        Applications.create_public_stream_server_key(%{
-          "public_key" => valid_public_key_pem(),
+        Applications.create_stream_server_public_key(%{
+          "key" => valid_public_key_pem(),
           "application_id" => Ecto.UUID.generate()
         })
       end
     end
   end
 
-  describe "get_public_stream_server_key!/1" do
+  describe "get_stream_server_public_key!/1" do
     test "returns the key" do
-      key = public_stream_server_key_fixture(application_fixture())
+      key = stream_server_public_key_fixture(application_fixture())
 
-      assert Applications.get_public_stream_server_key!(key.id).id == key.id
+      assert Applications.get_stream_server_public_key!(key.id).id == key.id
     end
 
     test "raises when the key does not exist" do
       assert_raise Ecto.NoResultsError, fn ->
-        Applications.get_public_stream_server_key!(Ecto.UUID.generate())
+        Applications.get_stream_server_public_key!(Ecto.UUID.generate())
       end
     end
   end
 
-  describe "update_public_stream_server_key/2" do
+  describe "update_stream_server_public_key/2" do
     test "updates fields" do
       application = application_fixture()
       other = application_fixture()
-      key = public_stream_server_key_fixture(application)
+      key = stream_server_public_key_fixture(application)
 
       {:ok, updated} =
-        Applications.update_public_stream_server_key(key, %{
+        Applications.update_stream_server_public_key(key, %{
           "name" => "renamed key",
-          "public_key" => "-----BEGIN PUBLIC KEY-----\nother\n-----END PUBLIC KEY-----",
-          "disabled" => true,
+          "key" => "-----BEGIN PUBLIC KEY-----\nother\n-----END PUBLIC KEY-----",
+          "enabled" => false,
           "description" => "new desc",
           "application_id" => other.id
         })
 
       assert updated.name == "renamed key"
-      assert updated.public_key =~ "other"
-      assert updated.disabled == true
+      assert updated.key =~ "other"
+      assert updated.enabled == false
       assert updated.description == "new desc"
       assert updated.application_id == other.id
     end
   end
 
-  describe "delete_public_stream_server_key/1" do
+  describe "delete_stream_server_public_key/1" do
     test "removes the key" do
-      key = public_stream_server_key_fixture(application_fixture())
+      key = stream_server_public_key_fixture(application_fixture())
 
-      {:ok, _} = Applications.delete_public_stream_server_key(key)
+      {:ok, _} = Applications.delete_stream_server_public_key(key)
 
       assert_raise Ecto.NoResultsError, fn ->
-        Applications.get_public_stream_server_key!(key.id)
+        Applications.get_stream_server_public_key!(key.id)
       end
     end
   end
 
-  describe "change_public_stream_server_key/2" do
+  describe "change_stream_server_public_key/2" do
     test "returns a changeset" do
-      key = public_stream_server_key_fixture(application_fixture())
+      key = stream_server_public_key_fixture(application_fixture())
 
-      assert %Ecto.Changeset{} = Applications.change_public_stream_server_key(key)
+      assert %Ecto.Changeset{} = Applications.change_stream_server_public_key(key)
     end
   end
 
-  describe "list_applications_with_public_keys/1" do
-    test "preloads each application's public keys ordered by name" do
+  describe "list_applications_with_stream_server_public_keys/1" do
+    test "preloads each application's stream server public keys ordered by name" do
       application = application_fixture()
-      _key_b = public_stream_server_key_fixture(application, %{"name" => "b-key"})
-      key_a = public_stream_server_key_fixture(application, %{"name" => "a-key"})
+      _key_b = stream_server_public_key_fixture(application, %{"name" => "b-key"})
+      key_a = stream_server_public_key_fixture(application, %{"name" => "a-key"})
 
       loaded =
-        Applications.list_applications_with_public_keys()
+        Applications.list_applications_with_stream_server_public_keys()
         |> Enum.find(&(&1.id == application.id))
 
-      assert [%PublicStreamServerKey{name: "a-key"}, %PublicStreamServerKey{name: "b-key"}] =
-               loaded.public_stream_server_keys
+      assert [%StreamServerPublicKey{name: "a-key"}, %StreamServerPublicKey{name: "b-key"}] =
+               loaded.stream_server_public_keys
 
-      assert hd(loaded.public_stream_server_keys).id == key_a.id
+      assert hd(loaded.stream_server_public_keys).id == key_a.id
     end
 
     test "filters to a single application" do
       application = application_fixture()
       other = application_fixture()
-      key = public_stream_server_key_fixture(application)
-      _other_key = public_stream_server_key_fixture(other)
+      key = stream_server_public_key_fixture(application)
+      _other_key = stream_server_public_key_fixture(other)
 
-      loaded = Applications.list_applications_with_public_keys(application_id: application.id)
+      loaded =
+        Applications.list_applications_with_stream_server_public_keys(
+          application_id: application.id
+        )
 
       assert [%Application{id: id}] = loaded
       assert id == application.id
-      assert [%PublicStreamServerKey{id: key_id}] = hd(loaded).public_stream_server_keys
+      assert [%StreamServerPublicKey{id: key_id}] = hd(loaded).stream_server_public_keys
       assert key_id == key.id
     end
 
     test "nil and empty filter list every application" do
       application = application_fixture()
-      _key = public_stream_server_key_fixture(application)
+      _key = stream_server_public_key_fixture(application)
 
-      assert Applications.list_applications_with_public_keys() != []
+      assert Applications.list_applications_with_stream_server_public_keys() != []
 
       assert Enum.map(
-               Applications.list_applications_with_public_keys(application_id: ""),
+               Applications.list_applications_with_stream_server_public_keys(application_id: ""),
                & &1.id
              ) ==
-               Enum.map(Applications.list_applications_with_public_keys(), & &1.id)
+               Enum.map(Applications.list_applications_with_stream_server_public_keys(), & &1.id)
     end
   end
 
-  describe "delete_application/1 with public keys" do
-    test "deletes the application and cascades to its public stream server keys" do
+  describe "delete_application/1 with stream server public keys" do
+    test "deletes the application and cascades to its stream server public keys" do
       application = application_fixture()
-      key = public_stream_server_key_fixture(application)
+      key = stream_server_public_key_fixture(application)
 
       {:ok, _} = Applications.delete_application(application)
 
       assert_raise Ecto.NoResultsError, fn ->
-        Applications.get_public_stream_server_key!(key.id)
+        Applications.get_stream_server_public_key!(key.id)
       end
 
       refute PortalRepo.exists?(
-               from(k in PublicStreamServerKey, where: k.application_id == ^application.id)
+               from(k in StreamServerPublicKey, where: k.application_id == ^application.id)
              )
     end
   end
