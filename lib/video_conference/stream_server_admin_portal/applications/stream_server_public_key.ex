@@ -37,4 +37,38 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.StreamServerPubli
     |> validate_required([:key, :application_id])
     |> assoc_constraint(:application)
   end
+
+  @doc """
+  A changeset for renaming a stream server public key.
+  """
+  def name_changeset(%__MODULE__{} = key, attrs) do
+    cast(key, attrs, [:name])
+  end
+
+  @doc """
+  A changeset for editing a stream server public key's description.
+  """
+  def description_changeset(%__MODULE__{} = key, attrs) do
+    cast(key, attrs, [:description])
+  end
+
+  @doc """
+  A changeset for moving a stream server public key to another
+  application.
+  """
+  def application_changeset(%__MODULE__{} = key, attrs) do
+    key
+    |> cast(attrs, [:application_id])
+    |> validate_required([:application_id])
+    |> assoc_constraint(:application)
+  end
+
+  @doc """
+  A changeset for toggling a stream server public key's enabled flag.
+  """
+  def enabled_changeset(%__MODULE__{} = key, attrs) do
+    key
+    |> cast(attrs, [:enabled])
+    |> validate_required([:enabled])
+  end
 end

@@ -288,26 +288,83 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
-  describe "update_stream_server_public_key/2" do
-    test "updates fields" do
+  describe "rename_stream_server_public_key/2" do
+    test "renames the key" do
+      key = stream_server_public_key_fixture(application_fixture())
+
+      {:ok, updated} = Applications.rename_stream_server_public_key(key.id, "renamed key")
+
+      assert updated.name == "renamed key"
+      assert Applications.get_stream_server_public_key!(key.id).name == "renamed key"
+    end
+
+    test "cannot change the key" do
+      key = stream_server_public_key_fixture(application_fixture())
+
+      {:ok, updated} = Applications.rename_stream_server_public_key(key.id, "renamed key")
+
+      assert updated.key == key.key
+      assert Applications.get_stream_server_public_key!(key.id).key == key.key
+    end
+  end
+
+  describe "edit_stream_server_public_key_description/2" do
+    test "updates the description" do
+      key = stream_server_public_key_fixture(application_fixture())
+
+      {:ok, updated} =
+        Applications.edit_stream_server_public_key_description(key.id, "new desc")
+
+      assert updated.description == "new desc"
+
+      assert Applications.get_stream_server_public_key!(key.id).description == "new desc"
+    end
+  end
+
+  describe "switch_stream_server_public_key_application/2" do
+    test "moves the key to another application" do
       application = application_fixture()
       other = application_fixture()
       key = stream_server_public_key_fixture(application)
 
       {:ok, updated} =
-        Applications.update_stream_server_public_key(key, %{
-          "name" => "renamed key",
-          "key" => "-----BEGIN PUBLIC KEY-----\nother\n-----END PUBLIC KEY-----",
-          "enabled" => false,
-          "description" => "new desc",
-          "application_id" => other.id
-        })
+        Applications.switch_stream_server_public_key_application(key.id, other.id)
 
-      assert updated.name == "renamed key"
-      assert updated.key =~ "other"
-      assert updated.enabled == false
-      assert updated.description == "new desc"
       assert updated.application_id == other.id
+
+      assert Applications.get_stream_server_public_key!(key.id).application_id == other.id
+    end
+
+    test "returns an error changeset without an application" do
+      key = stream_server_public_key_fixture(application_fixture())
+
+      {:error, changeset} =
+        Applications.switch_stream_server_public_key_application(key.id, nil)
+
+      assert %{application_id: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "raises a constraint error for a nonexistent application" do
+      key = stream_server_public_key_fixture(application_fixture())
+
+      assert_raise Ecto.ConstraintError, fn ->
+        Applications.switch_stream_server_public_key_application(key.id, Ecto.UUID.generate())
+      end
+    end
+  end
+
+  describe "enable_stream_server_public_key/1 and disable_stream_server_public_key/1" do
+    test "toggles the enabled flag" do
+      key = stream_server_public_key_fixture(application_fixture())
+      assert key.enabled == true
+
+      {:ok, disabled} = Applications.disable_stream_server_public_key(key.id)
+      assert disabled.enabled == false
+      assert Applications.get_stream_server_public_key!(key.id).enabled == false
+
+      {:ok, enabled} = Applications.enable_stream_server_public_key(key.id)
+      assert enabled.enabled == true
+      assert Applications.get_stream_server_public_key!(key.id).enabled == true
     end
   end
 

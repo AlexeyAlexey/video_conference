@@ -100,10 +100,12 @@ and both `/​:id/edit` router lines (real + mirror) are deleted.
 
 ### 5. Enabled checkbox toggles immediately
 
-`phx-click="toggle-enabled"` + `phx-value-id` on a real `<input
-type="checkbox">` (checked when `key.enabled`). The handler calls
-`enable_`/`disable_stream_server_public_key/1` and refreshes the grouped
-list via the existing `assign_applications/1`. No confirmation — it's a
+`phx-click="toggle-enabled"` + `phx-value-id` + `phx-value-enabled` on a
+real `<input type="checkbox">` (checked when `key.enabled`).
+`phx-value-enabled` carries the displayed state, so the handler picks
+`disable_` when the UI shows enabled and `enable_` when it shows
+disabled — no extra fetch. It then refreshes the grouped list via the
+existing `assign_applications/1`. No confirmation — it's a
 non-destructive flip; the checkbox itself shows the result.
 
 ### 6. `⋯` menu is a daisyUI dropdown, not DropdownComponent

@@ -196,12 +196,56 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Updates a stream server public key's name, public key material,
-  enabled flag, description, or parent application.
+  Renames a stream server public key. The public key material is
+  immutable and cannot be changed through this function.
   """
-  def update_stream_server_public_key(%StreamServerPublicKey{} = key, attrs) do
-    key
-    |> StreamServerPublicKey.changeset(attrs)
+  def rename_stream_server_public_key(id, name) do
+    id
+    |> get_stream_server_public_key!()
+    |> StreamServerPublicKey.name_changeset(%{"name" => name})
+    |> Repo.update()
+  end
+
+  @doc """
+  Updates a stream server public key's description. The public key
+  material is immutable and cannot be changed through this function.
+  """
+  def edit_stream_server_public_key_description(id, description) do
+    id
+    |> get_stream_server_public_key!()
+    |> StreamServerPublicKey.description_changeset(%{"description" => description})
+    |> Repo.update()
+  end
+
+  @doc """
+  Moves a stream server public key to another application. The public
+  key material is immutable and cannot be changed through this
+  function.
+  """
+  def switch_stream_server_public_key_application(id, application_id) do
+    id
+    |> get_stream_server_public_key!()
+    |> StreamServerPublicKey.application_changeset(%{"application_id" => application_id})
+    |> Repo.update()
+  end
+
+  @doc """
+  Enables a stream server public key.
+  """
+  def enable_stream_server_public_key(id) do
+    id
+    |> get_stream_server_public_key!()
+    |> StreamServerPublicKey.enabled_changeset(%{"enabled" => true})
+    |> Repo.update()
+  end
+
+  @doc """
+  Disables a stream server public key.
+  """
+  def disable_stream_server_public_key(id) do
+    id
+    |> get_stream_server_public_key!()
+    |> StreamServerPublicKey.enabled_changeset(%{"enabled" => false})
     |> Repo.update()
   end
 
