@@ -1,0 +1,113 @@
+# Spec Delta
+
+## Purpose
+
+Persists domain events for the stream server admin portal: append-only,
+seq-ordered storage in the portal database, written atomically with the
+change each event describes, so future subscribers can reliably replay
+what happened.
+
+## ADDED Requirements
+
+### Requirement: Event record
+
+The system SHALL persist each event in the portal database with: an
+auto-increment integer `seq` primary key giving a global insertion
+order, an `id` identifying the aggregate the event describes, a
+`version` giving the aggregate's version after the event, an
+`event_type` string, a `payload` binary, and an `added_at` timestamp
+with microsecond precision. The (`id`, `version`) pair SHALL be unique.
+
+#### Scenario: Appended event is persisted
+
+- **WHEN** an event is appended
+- **THEN** it is persisted with a generated `seq`, its `event_type`, the
+  encoded `payload`, and an `added_at` timestamp, and with `id` and
+  `version` taken from the event itself
+
+#### Scenario: Sequence gives a total order
+
+- **WHEN** events are appended, including multiple events in one
+  transaction
+- **THEN** each later-appended event has a higher `seq` than every
+  earlier one
+
+#### Scenario: Duplicate id and version rejected
+
+- **WHEN** an event is appended whose (`id`, `version`) pair already
+  exists in the store
+- **THEN** the append fails with a uniqueness error and no second event
+  with that pair is stored
+
+### Requirement: Event payload encoding
+
+Each event SHALL be an Elixir struct. The stored `event_type` SHALL be
+the event struct's module name as a string, and the `payload` SHALL be
+the binary produced by encoding the event struct with
+`:erlang.term_to_binary/1`. Decoding a stored `payload` SHALL reproduce
+the original event struct.
+
+#### Scenario: Event type is the module name
+
+- **WHEN** an event struct is appended
+- **THEN** the stored `event_type` equals the struct's module name
+  rendered as a string
+
+#### Scenario: Payload round-trips
+
+- **WHEN** a stored event's `payload` is decoded
+- **THEN** it yields a struct equal to the one that was appended
+
+### Requirement: Transactional append
+
+Appending events SHALL be expressible as part of a caller's database
+transaction, so that an event and the change it describes commit
+together or roll back together.
+
+#### Scenario: Event and change commit together
+
+- **WHEN** a record change and its event are placed in one database
+  transaction that commits
+- **THEN** both the record and the event are persisted
+
+#### Scenario: Rollback discards the event
+
+- **WHEN** a transaction containing a record change and its event fails
+- **THEN** neither the record nor the event is persisted
+
+#### Scenario: Multiple events in one append
+
+- **WHEN** several events are appended in one transaction
+- **THEN** all of them are persisted, each with its own `seq`
+
+### Requirement: Event retrieval
+
+The system SHALL return stored events filtered to a given set of event
+type names and to `seq` greater than a given cursor, ordered by
+ascending `seq`, with each `payload` decoded back into its event
+struct.
+
+#### Scenario: Filtering by event names
+
+- **WHEN** events are fetched with a list of event type names
+- **THEN** only events whose `event_type` is in the list are returned
+
+#### Scenario: Filtering by seq cursor
+
+- **WHEN** events are fetched with a `seq` cursor
+- **THEN** only events with a `seq` greater than the cursor are returned
+
+#### Scenario: Results are ordered by seq
+
+- **WHEN** several stored events match a fetch
+- **THEN** they are returned in ascending `seq` order
+
+#### Scenario: Returned payload is the event struct
+
+- **WHEN** a stored event is returned
+- **THEN** its payload is decoded into the original event struct
+
+#### Scenario: No matching events
+
+- **WHEN** no stored event matches the given names and cursor
+- **THEN** an empty list is returned
