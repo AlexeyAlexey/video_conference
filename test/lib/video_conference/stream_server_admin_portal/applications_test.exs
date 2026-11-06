@@ -6,9 +6,11 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
   alias VideoConference.StreamServerAdminPortal.Applications.{
     ApiKey,
     Application,
-    StreamServerPublicKey
+    StreamServerPublicKey,
+    StreamServerPublicKeyAddedEvent
   }
 
+  alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo, as: PortalRepo
 
   import VideoConference.StreamServerAdminPortalFixtures
@@ -212,6 +214,7 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert key.application_id == application.id
       assert key.enabled == true
       assert key.description == "desc"
+      assert key.lock_version == 1
       assert key.inserted_at
       assert key.updated_at
     end
@@ -271,6 +274,129 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
           "application_id" => Ecto.UUID.generate()
         })
       end
+    end
+
+    test "commits the key and a StreamServerPublicKeyAddedEvent together" do
+      application = application_fixture()
+
+      {:ok, %StreamServerPublicKey{} = key} =
+        Applications.create_stream_server_public_key(%{
+          "name" => "key one",
+          "key" => valid_public_key_pem(),
+          "application_id" => application.id,
+          "description" => "desc"
+        })
+
+      assert [stored] =
+               EventStore.get_events([inspect(StreamServerPublicKeyAddedEvent)], 0)
+
+      assert stored.stream_id == key.id
+      assert stored.version == 1
+
+      assert stored.payload == %StreamServerPublicKeyAddedEvent{
+               stream_id: key.id,
+               application_id: application.id,
+               name: "key one",
+               key: valid_public_key_pem(),
+               enabled: true,
+               description: "desc"
+             }
+    end
+
+    test "a failing event append rolls back the key insert" do
+      application = application_fixture()
+
+      changeset =
+        StreamServerPublicKey.changeset(%StreamServerPublicKey{}, %{
+          "name" => "rolled back",
+          "key" => valid_public_key_pem(),
+          "application_id" => application.id
+        })
+
+      assert_raise ArgumentError, fn ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:stream_server_public_key, changeset)
+        |> Ecto.Multi.merge(fn _changes ->
+          EventStore.append([%StreamServerPublicKeyAddedEvent{stream_id: nil}])
+        end)
+        |> PortalRepo.transaction()
+      end
+
+      refute PortalRepo.exists?(from(k in StreamServerPublicKey, where: k.name == "rolled back"))
+    end
+  end
+
+  describe "StreamServerPublicKeyAddedEvent.new/1" do
+    test "maps all fields from the key" do
+      key = %StreamServerPublicKey{
+        id: Ecto.UUID.generate(),
+        lock_version: 2,
+        application_id: Ecto.UUID.generate(),
+        name: "name",
+        key: "pem",
+        enabled: false,
+        description: "desc"
+      }
+
+      assert StreamServerPublicKeyAddedEvent.new(key) == %StreamServerPublicKeyAddedEvent{
+               stream_id: key.id,
+               application_id: key.application_id,
+               name: "name",
+               key: "pem",
+               enabled: false,
+               description: "desc"
+             }
+    end
+  end
+
+  describe "stream server public key optimistic locking" do
+    test "increments lock_version on each update" do
+      application = application_fixture()
+      other = application_fixture()
+      key = stream_server_public_key_fixture(application)
+      assert key.lock_version == 1
+
+      {:ok, key} = Applications.rename_stream_server_public_key(key.id, "renamed")
+      assert key.lock_version == 2
+
+      {:ok, key} = Applications.edit_stream_server_public_key_description(key.id, "desc")
+      assert key.lock_version == 3
+
+      {:ok, key} =
+        Applications.switch_stream_server_public_key_application(key.id, other.id)
+
+      assert key.lock_version == 4
+
+      {:ok, key} = Applications.disable_stream_server_public_key(key.id)
+      assert key.lock_version == 5
+
+      assert Applications.get_stream_server_public_key!(key.id).lock_version == 5
+    end
+
+    test "a stale update returns an error changeset instead of raising" do
+      key = stream_server_public_key_fixture(application_fixture())
+      stale = Applications.get_stream_server_public_key!(key.id)
+
+      {:ok, _} = Applications.rename_stream_server_public_key(key.id, "renamed")
+
+      assert {:error, changeset} =
+               stale
+               |> StreamServerPublicKey.name_changeset(%{"name" => "stale name"})
+               |> PortalRepo.update(stale_error_field: :lock_version)
+
+      assert %{lock_version: ["is stale"]} = errors_on(changeset)
+      assert Applications.get_stream_server_public_key!(key.id).name == "renamed"
+    end
+
+    test "a stale delete returns an error changeset instead of raising" do
+      key = stream_server_public_key_fixture(application_fixture())
+      stale = Applications.get_stream_server_public_key!(key.id)
+
+      {:ok, _} = Applications.rename_stream_server_public_key(key.id, "renamed")
+
+      assert {:error, changeset} = Applications.delete_stream_server_public_key(stale)
+      assert %{lock_version: ["is stale"]} = errors_on(changeset)
+      assert Applications.get_stream_server_public_key!(key.id)
     end
   end
 

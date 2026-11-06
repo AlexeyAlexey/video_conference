@@ -10,12 +10,15 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   """
 
   import Ecto.Query, warn: false
+  alias Ecto.Multi
+  alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo
 
   alias VideoConference.StreamServerAdminPortal.Applications.{
     ApiKey,
     Application,
-    StreamServerPublicKey
+    StreamServerPublicKey,
+    StreamServerPublicKeyAddedEvent
   }
 
   ## Applications
@@ -190,9 +193,20 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   material. The record's generated UUID serves as its key id.
   """
   def create_stream_server_public_key(attrs \\ %{}) do
-    %StreamServerPublicKey{}
-    |> StreamServerPublicKey.changeset(attrs)
-    |> Repo.insert()
+    Multi.new()
+    |> Multi.insert(
+      :stream_server_public_key,
+      StreamServerPublicKey.changeset(%StreamServerPublicKey{}, attrs)
+    )
+    |> Multi.merge(fn %{stream_server_public_key: key} ->
+      EventStore.append([StreamServerPublicKeyAddedEvent.new(key)])
+    end)
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{stream_server_public_key: key}} -> {:ok, key}
+      {:error, _operation, %Ecto.Changeset{} = changeset, _changes} -> {:error, changeset}
+      {:error, _operation, error, _changes} -> {:error, error}
+    end
   end
 
   @doc """
@@ -203,7 +217,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     id
     |> get_stream_server_public_key!()
     |> StreamServerPublicKey.name_changeset(%{"name" => name})
-    |> Repo.update()
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
@@ -214,7 +228,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     id
     |> get_stream_server_public_key!()
     |> StreamServerPublicKey.description_changeset(%{"description" => description})
-    |> Repo.update()
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
@@ -226,7 +240,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     id
     |> get_stream_server_public_key!()
     |> StreamServerPublicKey.application_changeset(%{"application_id" => application_id})
-    |> Repo.update()
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
@@ -236,7 +250,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     id
     |> get_stream_server_public_key!()
     |> StreamServerPublicKey.enabled_changeset(%{"enabled" => true})
-    |> Repo.update()
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
@@ -246,14 +260,17 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     id
     |> get_stream_server_public_key!()
     |> StreamServerPublicKey.enabled_changeset(%{"enabled" => false})
-    |> Repo.update()
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
   Deletes a stream server public key.
   """
   def delete_stream_server_public_key(%StreamServerPublicKey{} = key) do
-    Repo.delete(key)
+    key
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.optimistic_lock(:lock_version)
+    |> Repo.delete(stale_error_field: :lock_version)
   end
 
   @doc """

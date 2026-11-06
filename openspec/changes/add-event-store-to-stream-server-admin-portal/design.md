@@ -45,33 +45,47 @@ transaction — a total order across all event types for free.
   a transaction. `added_at` is a filter cursor, not an ordering key.
 - *Alternative: order by uuid `id`.* Rejected — uuids are random.
 
-### `(id, version)` = (aggregate uuid, aggregate `lock_version`)
+### `(stream_id, version)` — contiguous per-stream position, no counter table
 
-`id` is the id of the entity the event describes (here, the public
-key's UUID); `version` is that entity's `lock_version` after the event.
-A `StreamServerPublicKeyAddedEvent` lands at `(key.id, 1)` since new
-rows start at `lock_version` 1; future per-mutation events land at 2,
-3, …. `unique_index(:events, [:id, :version])` makes the pair the
-idempotency key for future subscribers.
+`stream_id` is an opaque, non-empty string identifying the stream the
+event belongs to — for `StreamServerPublicKeyAddedEvent` it is the
+created key's UUID, but the store accepts any non-empty identity. The
+store assigns `version` as `MAX(version) + 1` over that `stream_id`,
+computed inside the append transaction — a contiguous per-stream
+position fully decoupled from the aggregate's `lock_version`.
+`unique_index(:events, [:stream_id, :version])` is the correctness
+backstop: two writes can never record the same stream position.
 
-- *Alternative: `id` = the event's own uuid, `version` = payload schema
-  version.* Rejected — disconnected from the optimistic-lock work, and
-  `(id, version)` would be nearly redundant with `id` alone.
-- *Trade-off accepted:* at most one event per aggregate version, and
-  versions will have gaps until update mutations emit events (e.g.
-  Added@1, rename@2 unevented, next event@4). Subscribers must treat
-  `(id, version)` as a dedup key, not a contiguous sequence.
+- *Alternative: `(id, version)` = (aggregate uuid, aggregate
+  `lock_version`).* Rejected — couples event identity to entity
+  concurrency control, produces version gaps when mutations don't emit
+  events, and conflates two independent concerns.
+- *Alternative: a `streams` counter table.* Rejected — under SQLite's
+  single writer the counter buys nothing the `MAX + 1` read inside the
+  transaction doesn't already give; it only pays off for row-level
+  stream locking and expected-version preconditions on a multi-writer
+  database, and can be added later without changing stored data.
+- *Idempotency is out of scope:* the producer does not pick `version`,
+  so retrying an append after it commits stores a second event at the
+  next position. Retries of the whole operation retry the transaction,
+  not the store.
 
 ### `EventStore.append` returns an `Ecto.Multi`
 
 ```elixir
 def append(events), do: append(Multi.new(), events)
-def append(%Multi{} = multi, events)  # one Multi.insert per event
+def append(%Multi{} = multi, events)
 ```
 
 `append/1` is exactly what `Ecto.Multi.merge/2` needs; `append/2`
-extends a caller's multi directly. The event depends on the inserted
-key's generated values, so creation uses `merge`:
+extends a caller's multi directly. One `Multi.run` per event reads
+`MAX(version) + 1` for its `stream_id` and inserts the row through a
+changeset carrying `validate_required(:stream_id)` (rejects `nil` and
+`""`) and the `unique_constraint` on `(stream_id, version)` — all in
+the order the events were given, so `seq` order matches append order.
+
+The event depends on the inserted key's generated values, so creation
+uses `merge`:
 
 ```elixir
 Multi.new()
@@ -141,32 +155,40 @@ subscribers.
 - `VideoConference.StreamServerAdminPortal.EventStore` — `append/1`,
   `append/2`, `get_events/2`, `decode_payload/1`.
 - `VideoConference.StreamServerAdminPortal.EventStore.Event` — `events`
-  schema (PK `:seq`, no `timestamps`).
+  schema (PK `:seq`, string `stream_id`, no `timestamps`).
 - `VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent`
-  — plain `defstruct`, fields: `id`, `version`, `application_id`,
+  — plain `defstruct`, fields: `stream_id`, `application_id`,
   `name`, `key`, `enabled`, `description`, with a
   `new(%StreamServerPublicKey{})` constructor that maps the entity to
-  the event (`id` = key id, `version` = key `lock_version`, snapshot
-  fields copied). Keeping the `(id, version)` mapping inside `new/1`
-  means the `Multi.merge` step is a one-liner and the mapping rule
-  lives in exactly one place — every future entity event follows the
-  same constructor convention.
+  the event (`stream_id` = key id, snapshot fields copied). Keeping the
+  stream mapping inside `new/1` means the `Multi.merge` step is a
+  one-liner and the mapping rule lives in exactly one place — every
+  future entity event follows the same constructor convention.
 - Two migrations under `priv/stream_server_admin_portal_repo/migrations/`:
-  `create_events` (with `unique_index(:events, [:id, :version])`) and
-  `add_lock_version_to_stream_server_public_keys`.
+  `create_events` (with `unique_index(:events, [:stream_id, :version])`)
+  and `add_lock_version_to_stream_server_public_keys`.
 
 ## Risks / Trade-offs
 
 - **ETF payloads are opaque to SQL and brittle to renames** → keep event
-  structs small and their module names stable; `(id, version)` plus the
-  stored `event_type` give an upcast path if a payload ever needs
-  migrating.
+  structs small and their module names stable; `(stream_id, version)`
+  plus the stored `event_type` give an upcast path if a payload ever
+  needs migrating.
 - **`seq` cursor assumes rowid monotonicity** → guaranteed by SQLite
   `INTEGER PRIMARY KEY` for this append-only table; no row is ever
   updated or deleted, so `seq > cursor` resumes exactly.
-- **One event per aggregate version** → enforced by the unique index;
-  an operation that bumps `lock_version` once can emit only one event —
-  acceptable since each mutation is one fact.
+- **Racing appends to one stream can collide on `MAX + 1`** → two
+  deferred transactions may compute the same next position; the loser
+  fails on `UNIQUE(stream_id, version)` loudly and retries — never
+  silently double-records. In practice appends follow the aggregate
+  write in the same transaction, which already holds SQLite's writer
+  lock.
+- **Version derives from the rows themselves** → safe only because the
+  table is append-only; deleting events would let `MAX + 1` reuse
+  positions. No delete path exists.
+- **No idempotent retry** → `version` is store-assigned, so a retried
+  append is a new append. Callers that need exactly-once must retry the
+  whole transaction (which re-runs the aggregate write too).
 - **Renamed event modules break decode** → `binary_to_term` yields a
   struct for whatever atom the payload names; a removed module raises.
   Keep modules stable; rescue-and-skip is a later decision for
@@ -174,7 +196,7 @@ subscribers.
 
 ## Migration Plan
 
-1. Mix tasks run both new migrations against the portal DB
+1. Mix tasks run the new migrations against the portal DB
    (`mix ecto.migrate` covers the second repo via `ecto_repos`).
 2. `lock_version` backfills to 1 on existing rows via column default.
 3. Rollback: `mix ecto.rollback` drops `events` and the `lock_version`

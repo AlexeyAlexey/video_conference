@@ -19,6 +19,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.StreamServerPubli
     field :key, :string
     field :enabled, :boolean, default: true
     field :description, :string
+    field :lock_version, :integer, default: 1
 
     belongs_to :application, Application
 
@@ -42,14 +43,18 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.StreamServerPubli
   A changeset for renaming a stream server public key.
   """
   def name_changeset(%__MODULE__{} = key, attrs) do
-    cast(key, attrs, [:name])
+    key
+    |> cast(attrs, [:name])
+    |> optimistic_lock(:lock_version)
   end
 
   @doc """
   A changeset for editing a stream server public key's description.
   """
   def description_changeset(%__MODULE__{} = key, attrs) do
-    cast(key, attrs, [:description])
+    key
+    |> cast(attrs, [:description])
+    |> optimistic_lock(:lock_version)
   end
 
   @doc """
@@ -61,6 +66,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.StreamServerPubli
     |> cast(attrs, [:application_id])
     |> validate_required([:application_id])
     |> assoc_constraint(:application)
+    |> optimistic_lock(:lock_version)
   end
 
   @doc """
@@ -70,5 +76,6 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.StreamServerPubli
     key
     |> cast(attrs, [:enabled])
     |> validate_required([:enabled])
+    |> optimistic_lock(:lock_version)
   end
 end

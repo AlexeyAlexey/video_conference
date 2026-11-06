@@ -37,21 +37,20 @@ exception.
 Creating a portal stream server public key SHALL append a
 `StreamServerPublicKeyAddedEvent` to the event store in the same
 database transaction as the key's insert. The event SHALL carry the
-created key's `id`, its `version` (the key's `lock_version` after
-creation), and its `application_id`, `name`, `key`, `enabled`, and
-`description` values.
+created key's `id` as its `stream_id`, and its `application_id`,
+`name`, `key`, `enabled`, and `description` values.
 
 #### Scenario: Creation appends an added event
 
 - **WHEN** a portal stream server public key is created
 - **THEN** exactly one `StreamServerPublicKeyAddedEvent` is stored with
-  the new key's `id` as the event `id` and the key's `lock_version` as
-  the event `version`
+  the new key's `id` as its `stream_id`, as the first event on that
+  stream
 
 #### Scenario: Event carries the created key's values
 
 - **WHEN** a stored `StreamServerPublicKeyAddedEvent` is read back
-- **THEN** it contains the created key's `id`, `version`,
+- **THEN** it contains the created key's id as `stream_id`, and its
   `application_id`, `name`, `key`, `enabled`, and `description` at
   creation time
 

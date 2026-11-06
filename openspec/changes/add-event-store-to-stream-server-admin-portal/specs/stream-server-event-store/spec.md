@@ -13,17 +13,30 @@ what happened.
 
 The system SHALL persist each event in the portal database with: an
 auto-increment integer `seq` primary key giving a global insertion
-order, an `id` identifying the aggregate the event describes, a
-`version` giving the aggregate's version after the event, an
-`event_type` string, a `payload` binary, and an `added_at` timestamp
-with microsecond precision. The (`id`, `version`) pair SHALL be unique.
+order, a `stream_id` identifying the stream the event belongs to, a
+`version` giving the event's position within that stream as assigned by
+the store, an `event_type` string, a `payload` binary, and an
+`added_at` timestamp with microsecond precision. `stream_id` SHALL be
+a non-empty string. The (`stream_id`, `version`) pair SHALL be unique.
 
 #### Scenario: Appended event is persisted
 
 - **WHEN** an event is appended
 - **THEN** it is persisted with a generated `seq`, its `event_type`, the
-  encoded `payload`, and an `added_at` timestamp, and with `id` and
-  `version` taken from the event itself
+  encoded `payload`, and an `added_at` timestamp, with `stream_id`
+  taken from the event and `version` assigned as the next position on
+  that stream
+
+#### Scenario: Stream id is required
+
+- **WHEN** an event is appended with a missing or empty `stream_id`
+- **THEN** the append fails and no event is stored
+
+#### Scenario: Version is a contiguous per-stream sequence
+
+- **WHEN** events are appended to a stream
+- **THEN** each stored event's `version` is its consecutive position on
+  that stream, starting at 1
 
 #### Scenario: Sequence gives a total order
 
@@ -32,11 +45,11 @@ with microsecond precision. The (`id`, `version`) pair SHALL be unique.
 - **THEN** each later-appended event has a higher `seq` than every
   earlier one
 
-#### Scenario: Duplicate id and version rejected
+#### Scenario: Duplicate stream position rejected
 
-- **WHEN** an event is appended whose (`id`, `version`) pair already
-  exists in the store
-- **THEN** the append fails with a uniqueness error and no second event
+- **WHEN** an event row is stored whose (`stream_id`, `version`) pair
+  already exists in the store
+- **THEN** the write fails with a uniqueness error and no second event
   with that pair is stored
 
 ### Requirement: Event payload encoding
@@ -61,8 +74,8 @@ the original event struct.
 ### Requirement: Transactional append
 
 Appending events SHALL be expressible as part of a caller's database
-transaction, so that an event and the change it describes commit
-together or roll back together.
+transaction, so that an event, the change it describes, and the stream
+version increment commit together or roll back together.
 
 #### Scenario: Event and change commit together
 
@@ -78,7 +91,8 @@ together or roll back together.
 #### Scenario: Multiple events in one append
 
 - **WHEN** several events are appended in one transaction
-- **THEN** all of them are persisted, each with its own `seq`
+- **THEN** all of them are persisted, each with its own `seq` and its
+  own consecutive stream `version`
 
 ### Requirement: Event retrieval
 
