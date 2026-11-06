@@ -10,21 +10,27 @@ describes, gives us that record without any external infrastructure.
 
 ## What Changes
 
-- New `events` table in the stream server admin portal database
-  (`VideoConference.StreamServerAdminPortal.Repo`): an auto-increment
-  integer `seq` primary key providing global total ordering, an opaque
-  non-empty `stream_id` string identifying the stream an event belongs
-  to (e.g. an aggregate's record id), a store-assigned per-stream
-  `version` (unique with `stream_id`), `event_type` (module name
-  string), `payload` (`:erlang.term_to_binary` of the event struct),
-  and `added_at` (`utc_datetime_usec`).
+- New `streams` table in the stream server admin portal database
+  (`VideoConference.StreamServerAdminPortal.Repo`): surrogate integer
+  `id` primary key, an opaque unique non-empty `stream_id` string
+  identifying the stream (e.g. an aggregate's record id), a `version`
+  counter incremented once per appended event, `created_at`, and a
+  nullable `deleted_at` reserved for future soft-delete. A seeded
+  `$all` stream (id 0) counts every appended event — its `version`
+  tracks the global event count.
+- New `events` table: an auto-increment integer `seq` primary key
+  providing global total ordering, `stream_id` (the opaque stream
+  identity), a store-assigned per-stream `version` (unique with
+  `stream_id`), `event_type` (module name string), `payload`
+  (`:erlang.term_to_binary` of the event struct), and `added_at`
+  (`utc_datetime_usec`).
 - New `VideoConference.StreamServerAdminPortal.EventStore` context exposing:
   - `append(events)` — returns an `Ecto.Multi` inserting the given event
     structs, so callers can merge it into their own transaction.
     `append(multi, events)` extends an existing `Ecto.Multi`. Each
     event's `version` is the next contiguous position on its stream —
-    `MAX(version) + 1` over `stream_id` — computed inside the same
-    transaction.
+    the stream's `version` counter is incremented inside the same
+    transaction, as is the reserved `$all` stream's counter.
   - `get_events(event_names, seq)` — returns stored events whose
     `event_type` is in `event_names` and `seq` is greater than the given
     cursor, ordered by `seq`, with payloads decoded back into their
@@ -53,8 +59,9 @@ describes, gives us that record without any external infrastructure.
 
 - `stream-server-event-store`: append-only event persistence in the portal
   database — seq-ordered storage, contiguous per-stream `version`
-  positions assigned at append time, `Ecto.Multi`-composable appends,
-  and name+cursor-filtered reads.
+  positions tracked in a `streams` counter table (with a global `$all`
+  stream), `Ecto.Multi`-composable appends, and name+cursor-filtered
+  reads.
 
 ### Modified Capabilities
 
@@ -66,6 +73,7 @@ describes, gives us that record without any external infrastructure.
 
 - **New code**: `lib/video_conference/stream_server_admin_portal/event_store.ex`,
   `lib/video_conference/stream_server_admin_portal/event_store/event.ex`,
+  `lib/video_conference/stream_server_admin_portal/event_store/stream.ex`,
   `lib/video_conference/stream_server_admin_portal/applications/stream_server_public_key_added_event.ex`,
   migrations in `priv/stream_server_admin_portal_repo/migrations/`.
 - **Modified code**: `Applications.create_stream_server_public_key/1` and

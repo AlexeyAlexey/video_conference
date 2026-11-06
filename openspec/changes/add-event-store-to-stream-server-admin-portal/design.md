@@ -45,26 +45,36 @@ transaction — a total order across all event types for free.
   a transaction. `added_at` is a filter cursor, not an ordering key.
 - *Alternative: order by uuid `id`.* Rejected — uuids are random.
 
-### `(stream_id, version)` — contiguous per-stream position, no counter table
+### `(stream_id, version)` via a `streams` counter table + `$all`
 
 `stream_id` is an opaque, non-empty string identifying the stream the
 event belongs to — for `StreamServerPublicKeyAddedEvent` it is the
-created key's UUID, but the store accepts any non-empty identity. The
-store assigns `version` as `MAX(version) + 1` over that `stream_id`,
-computed inside the append transaction — a contiguous per-stream
-position fully decoupled from the aggregate's `lock_version`.
-`unique_index(:events, [:stream_id, :version])` is the correctness
-backstop: two writes can never record the same stream position.
+created key's UUID, but the store accepts any non-empty identity. A
+`streams` table holds one row per stream: surrogate integer `id`
+primary key, unique `stream_id`, a `version` counter, `created_at`,
+and a nullable `deleted_at` reserved for future soft-delete. Appending
+an event increments its stream's `version` by one inside the same
+transaction and stores the event at that position — a contiguous
+per-stream sequence fully decoupled from the aggregate's
+`lock_version`. `unique_index(:events, [:stream_id, :version])` is the
+correctness backstop: two writes can never record the same stream
+position.
+
+A seeded `"$all"` stream (surrogate id 0) is incremented once per
+appended event, so its `version` tracks the global event count — the
+same total order `seq` exposes. `"$all"` is reserved: appending an
+event with that `stream_id` is rejected so no event can silently
+double-count the global stream.
 
 - *Alternative: `(id, version)` = (aggregate uuid, aggregate
   `lock_version`).* Rejected — couples event identity to entity
   concurrency control, produces version gaps when mutations don't emit
   events, and conflates two independent concerns.
-- *Alternative: a `streams` counter table.* Rejected — under SQLite's
-  single writer the counter buys nothing the `MAX + 1` read inside the
-  transaction doesn't already give; it only pays off for row-level
-  stream locking and expected-version preconditions on a multi-writer
-  database, and can be added later without changing stored data.
+- *Alternative: `version` = `MAX(version) + 1` over `events`.* Rejected
+  — a counter row is a single point of contention per stream, leaves
+  room for stream metadata (`deleted_at`, expected-version checks,
+  snapshots), and matches the Commanded-style model this store
+  follows; `MAX + 1` is a fallback if the table ever goes away.
 - *Idempotency is out of scope:* the producer does not pick `version`,
   so retrying an append after it commits stores a second event at the
   next position. Retries of the whole operation retry the transaction,
@@ -78,11 +88,15 @@ def append(%Multi{} = multi, events)
 ```
 
 `append/1` is exactly what `Ecto.Multi.merge/2` needs; `append/2`
-extends a caller's multi directly. One `Multi.run` per event reads
-`MAX(version) + 1` for its `stream_id` and inserts the row through a
-changeset carrying `validate_required(:stream_id)` (rejects `nil` and
-`""`) and the `unique_constraint` on `(stream_id, version)` — all in
-the order the events were given, so `seq` order matches append order.
+extends a caller's multi directly. One `Multi.run` per event bumps its
+stream's counter with a single upsert (`insert ... on_conflict: inc
+version, conflict_target: :stream_id, returning: [:version]` —
+first insert lands at `version` 1), bumps the `$all` stream the same
+way, and inserts the event row through a changeset carrying
+`validate_required(:stream_id)` (rejects `nil` and `""`),
+`validate_exclusion(:stream_id, ["$all"])`, and the
+`unique_constraint` on `(stream_id, version)` — all in the order the
+events were given, so `seq` order matches append order.
 
 The event depends on the inserted key's generated values, so creation
 uses `merge`:
@@ -154,6 +168,9 @@ subscribers.
 
 - `VideoConference.StreamServerAdminPortal.EventStore` — `append/1`,
   `append/2`, `get_events/2`, `decode_payload/1`.
+- `VideoConference.StreamServerAdminPortal.EventStore.Stream` —
+  `streams` schema (surrogate PK `:id`, unique `stream_id`, `version`
+  counter, `created_at`, `deleted_at`).
 - `VideoConference.StreamServerAdminPortal.EventStore.Event` — `events`
   schema (PK `:seq`, string `stream_id`, no `timestamps`).
 - `VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent`
@@ -164,9 +181,10 @@ subscribers.
   stream mapping inside `new/1` means the `Multi.merge` step is a
   one-liner and the mapping rule lives in exactly one place — every
   future entity event follows the same constructor convention.
-- Two migrations under `priv/stream_server_admin_portal_repo/migrations/`:
-  `create_events` (with `unique_index(:events, [:stream_id, :version])`)
-  and `add_lock_version_to_stream_server_public_keys`.
+- Three migrations under `priv/stream_server_admin_portal_repo/migrations/`:
+  `create_events` (with `unique_index(:events, [:stream_id, :version])`),
+  `create_streams` (with `unique_index(:streams, [:stream_id])` and the
+  `$all` seed), and `add_lock_version_to_stream_server_public_keys`.
 
 ## Risks / Trade-offs
 
@@ -177,15 +195,16 @@ subscribers.
 - **`seq` cursor assumes rowid monotonicity** → guaranteed by SQLite
   `INTEGER PRIMARY KEY` for this append-only table; no row is ever
   updated or deleted, so `seq > cursor` resumes exactly.
-- **Racing appends to one stream can collide on `MAX + 1`** → two
-  deferred transactions may compute the same next position; the loser
-  fails on `UNIQUE(stream_id, version)` loudly and retries — never
-  silently double-records. In practice appends follow the aggregate
-  write in the same transaction, which already holds SQLite's writer
-  lock.
-- **Version derives from the rows themselves** → safe only because the
-  table is append-only; deleting events would let `MAX + 1` reuse
-  positions. No delete path exists.
+- **Concurrent appends to one stream serialize on its `streams` row** →
+  SQLite grants a single writer anyway, so the bump can't produce a
+  wrong position; at worst a racing transaction fails with a
+  busy/constraint error and retries. `UNIQUE(stream_id, version)` is
+  the last-line backstop.
+- **Counter survives deleted events** → `version` positions are never
+  reused even if a row disappeared, because the counter lives in
+  `streams`, not in `MAX(events.version)`. Still, the table is
+  append-only — `seq` rowids would be reused after deleting the
+  newest row, silently breaking `seq > cursor` readers.
 - **No idempotent retry** → `version` is store-assigned, so a retried
   append is a new append. Callers that need exactly-once must retry the
   whole transaction (which re-runs the aggregate write too).

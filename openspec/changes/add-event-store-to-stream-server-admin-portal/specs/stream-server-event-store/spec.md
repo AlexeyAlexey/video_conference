@@ -9,6 +9,48 @@ what happened.
 
 ## ADDED Requirements
 
+### Requirement: Stream record
+
+The system SHALL maintain one `streams` row per event stream: a
+surrogate integer `id` primary key, a unique non-empty `stream_id`
+string, a `version` counter incremented by one per appended event, a
+`created_at` timestamp, and a nullable `deleted_at`. Appending a
+stream's first event SHALL create its row in the same transaction.
+
+#### Scenario: Stream created on first append
+
+- **WHEN** the first event for a stream is appended
+- **THEN** a stream row exists for that `stream_id` with `version` 1
+
+#### Scenario: Version counts appended events
+
+- **WHEN** several events are appended to a stream, in one or more
+  transactions
+- **THEN** the stream's `version` increases by the number of appended
+  events
+
+#### Scenario: Streams are independent
+
+- **WHEN** events are appended to different streams
+- **THEN** each stream's `version` counts only its own events
+
+### Requirement: Global `$all` stream
+
+A `$all` stream SHALL exist whose `version` counts every appended
+event, tracking the global event count. The `$all` name SHALL be
+reserved and rejected as an event's `stream_id`.
+
+#### Scenario: `$all` counts every event
+
+- **WHEN** events are appended to any streams
+- **THEN** the `$all` stream's `version` increases by the number of
+  appended events and equals the total number of stored events
+
+#### Scenario: `$all` is reserved
+
+- **WHEN** an event is appended with `stream_id` `"$all"`
+- **THEN** the append fails and no event is stored
+
 ### Requirement: Event record
 
 The system SHALL persist each event in the portal database with: an

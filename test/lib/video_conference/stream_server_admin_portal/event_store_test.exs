@@ -4,7 +4,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
   alias Ecto.Multi
   alias VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent
   alias VideoConference.StreamServerAdminPortal.EventStore
-  alias VideoConference.StreamServerAdminPortal.EventStore.Event
+  alias VideoConference.StreamServerAdminPortal.EventStore.{Event, Stream}
   alias VideoConference.StreamServerAdminPortal.Repo, as: PortalRepo
 
   defp event_fixture(attrs \\ %{}) do
@@ -39,6 +39,11 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
       assert one.event_type == event_type()
       assert %DateTime{} = one.added_at
       assert :erlang.binary_to_term(one.payload) == first
+
+      stream = PortalRepo.get_by!(Stream, stream_id: stream_id)
+      assert stream.version == 2
+      assert %DateTime{} = stream.created_at
+      assert stream.deleted_at == nil
     end
 
     test "assigns contiguous versions per stream across transactions" do
@@ -50,6 +55,8 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
       assert {:ok, _} =
                PortalRepo.transaction(EventStore.append([event_fixture(%{stream_id: stream_id})]))
 
+      assert PortalRepo.get_by!(Stream, stream_id: stream_id).version == 2
+
       assert [%Event{version: 1}, %Event{version: 2}] =
                PortalRepo.all(from(e in Event, order_by: [asc: e.version]))
     end
@@ -60,7 +67,48 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
 
       assert {:ok, _} = PortalRepo.transaction(EventStore.append([first, second]))
 
+      assert PortalRepo.get_by!(Stream, stream_id: first.stream_id).version == 1
+      assert PortalRepo.get_by!(Stream, stream_id: second.stream_id).version == 1
+
       assert Enum.map(PortalRepo.all(Event), & &1.version) == [1, 1]
+    end
+
+    test "counts all appended events on the reserved $all stream" do
+      first = event_fixture()
+      second = event_fixture()
+
+      assert {:ok, _} = PortalRepo.transaction(EventStore.append([first, second]))
+
+      all = PortalRepo.get!(Stream, 0)
+      assert all.stream_id == "$all"
+      assert all.version == 2
+
+      assert PortalRepo.aggregate(Event, :count) == all.version
+    end
+
+    test "rejects an event without a stream_id" do
+      for stream_id <- [nil, ""] do
+        event = event_fixture(%{stream_id: stream_id})
+
+        assert {:error, _op, %Ecto.Changeset{} = changeset, _} =
+                 PortalRepo.transaction(EventStore.append([event]))
+
+        assert %{stream_id: ["can't be blank"]} = errors_on(changeset)
+      end
+
+      assert PortalRepo.aggregate(Event, :count) == 0
+      assert PortalRepo.get!(Stream, 0).version == 0
+    end
+
+    test "rejects the reserved $all stream id" do
+      event = event_fixture(%{stream_id: "$all"})
+
+      assert {:error, _op, %Ecto.Changeset{} = changeset, _} =
+               PortalRepo.transaction(EventStore.append([event]))
+
+      assert %{stream_id: ["is reserved"]} = errors_on(changeset)
+      assert PortalRepo.aggregate(Event, :count) == 0
+      assert PortalRepo.get!(Stream, 0).version == 0
     end
   end
 
@@ -93,7 +141,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
                PortalRepo.all(from(e in Event, order_by: [asc: e.version]))
     end
 
-    test "rolls back the event when the transaction fails" do
+    test "rolls back the event and stream bumps when the transaction fails" do
       event = event_fixture()
 
       multi =
@@ -103,6 +151,8 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
 
       assert {:error, :failure, :boom, _} = PortalRepo.transaction(multi)
       refute PortalRepo.exists?(from(e in Event, where: e.stream_id == ^event.stream_id))
+      refute PortalRepo.exists?(from(s in Stream, where: s.stream_id == ^event.stream_id))
+      assert PortalRepo.get!(Stream, 0).version == 0
     end
   end
 

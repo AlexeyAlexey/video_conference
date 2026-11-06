@@ -313,14 +313,15 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
           "application_id" => application.id
         })
 
-      assert_raise ArgumentError, fn ->
-        Ecto.Multi.new()
-        |> Ecto.Multi.insert(:stream_server_public_key, changeset)
-        |> Ecto.Multi.merge(fn _changes ->
-          EventStore.append([%StreamServerPublicKeyAddedEvent{stream_id: nil}])
-        end)
-        |> PortalRepo.transaction()
-      end
+      assert {:error, _operation, %Ecto.Changeset{} = error_changeset, _changes} =
+               Ecto.Multi.new()
+               |> Ecto.Multi.insert(:stream_server_public_key, changeset)
+               |> Ecto.Multi.merge(fn _changes ->
+                 EventStore.append([%StreamServerPublicKeyAddedEvent{stream_id: nil}])
+               end)
+               |> PortalRepo.transaction()
+
+      assert %{stream_id: ["can't be blank"]} = errors_on(error_changeset)
 
       refute PortalRepo.exists?(from(k in StreamServerPublicKey, where: k.name == "rolled back"))
     end
