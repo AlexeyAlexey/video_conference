@@ -73,8 +73,10 @@ the module; the row carries cursor/status), then refuses to start if
 
 ### Polling loop, no push notification
 
-Runner polls `get_events(types, cursor)` on an interval (config
-`:event_listener_poll_interval`, default ~1s), sleeping when the result
+Runner polls `get_events(types, cursor)` on an interval (the
+`:event_listener_poll_interval` option of
+`config :video_conference, :stream_server_admin_portal`, default ~1s),
+sleeping when the result
 is empty. Wake-up pokes are a later optimization: since the append
 commits inside the *caller's* `Repo.transaction`, a reliable poke must
 be emitted after commit — `Repo.transaction`'s `{:ok, _}` return is the
@@ -118,9 +120,10 @@ Runner reads config via `module.__listener__/0` (generated) rather than
 
 ### Listener registration via app config
 
-`config :video_conference, :event_listeners, [MyListener, ...]` —
-supervisor iterates the list at boot, skipping `failed` rows. Adding a
-listener is a config edit, not a code edit in the supervisor.
+`config :video_conference, :stream_server_admin_portal,
+event_listeners: [MyListener, ...]` — supervisor iterates the list at
+boot, skipping `failed` rows. Adding a listener is a config edit, not
+a code edit in the supervisor.
 
 ## Risks / Trade-offs
 
@@ -140,7 +143,9 @@ listener is a config edit, not a code edit in the supervisor.
 ## Migration Plan
 
 1. Migration creates `event_listeners` (portal repo).
-2. New modules compile; `:event_listeners` config names modules to run
+2. New modules compile; the `:event_listeners` option of
+   `config :video_conference, :stream_server_admin_portal` names
+   modules to run
    (empty list = feature inert).
 3. Rollback: remove supervisor child + config; table is additive, keep
    or drop.

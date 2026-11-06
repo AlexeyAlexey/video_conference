@@ -45,6 +45,12 @@ config :video_conference, VideoConference.StreamServerAdminPortal.Repo,
 config :video_conference,
   ecto_repos: [VideoConference.Repo, VideoConference.StreamServerAdminPortal.Repo]
 
+# Listener modules subscribed to the stream server admin portal event
+# store; each runs under EventStore.ListenersSupervisor at boot.
+config :video_conference, :stream_server_admin_portal,
+  event_listeners: [],
+  event_listener_poll_interval: 1_000
+
 # Configures the mailer
 #
 # By default it uses the "Local" adapter which stores the emails

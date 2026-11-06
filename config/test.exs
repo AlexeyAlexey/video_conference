@@ -70,3 +70,7 @@ config :video_conference, :stream_server_keys,
   encryption_secret:
     System.get_env("SECRET_KEY_TO_ENCRYPT_PRIVATE_KEY") ||
       "test-secret-encrypt-private-keys"
+
+config :video_conference, :stream_server_admin_portal,
+  event_listeners: [],
+  event_listener_poll_interval: 10

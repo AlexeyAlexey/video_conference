@@ -56,8 +56,9 @@ unchanged; listeners consume the existing `get_events/2` read contract.
   `event_store/listeners_supervisor.ex` (DynamicSupervisor),
   `event_store/listener_state.ex` (`event_listeners` schema),
   `EventStore.resume_listener/1`, a migration creating
-  `event_listeners`, and a `:event_listeners` app-config list naming the
-  listener modules to start.
+  `event_listeners`, and an `:event_listeners` option in the
+  `:stream_server_admin_portal` app config naming the listener modules
+  to start.
 - **Modified code**: `lib/video_conference/application.ex` gains the
   listeners supervisor child; `event_store.ex` gains the resume API.
 - **Delivery semantics**: at-least-once — a crash between a handler's

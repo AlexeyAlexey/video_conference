@@ -16,7 +16,15 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore do
   import Ecto.Query, warn: false
 
   alias Ecto.{Changeset, Multi}
-  alias VideoConference.StreamServerAdminPortal.EventStore.{Event, Stream}
+
+  alias VideoConference.StreamServerAdminPortal.EventStore.{
+    Event,
+    ListenerRunner,
+    ListenerState,
+    ListenersSupervisor,
+    Stream
+  }
+
   alias VideoConference.StreamServerAdminPortal.Repo
 
   @all_stream "$all"
@@ -68,6 +76,38 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore do
   Decodes a stored `payload` binary back into its event struct.
   """
   def decode_payload(payload), do: :erlang.binary_to_term(payload, [:safe])
+
+  @doc """
+  Resumes a `failed` listener by `name`.
+
+  Clears the listener's `failed` status and `last_error`, then starts
+  its runner under `ListenersSupervisor`. Delivery resumes from the
+  persisted cursor, so the event that failed is retried first.
+
+  Returns `:ok` on success, `{:error, :not_found}` when no listener row
+  or configured listener module exists for `name`, and
+  `{:error, :not_failed}` when the listener is not marked `failed`.
+  """
+  def resume_listener(name) do
+    with %ListenerState{status: "failed"} = listener <-
+           Repo.get_by(ListenerState, name: name),
+         module when not is_nil(module) <- ListenersSupervisor.configured_listener(name),
+         {:ok, _listener} <- mark_resumed(listener),
+         {:ok, _pid} <-
+           DynamicSupervisor.start_child(ListenersSupervisor, {ListenerRunner, module}) do
+      :ok
+    else
+      nil -> {:error, :not_found}
+      %ListenerState{} -> {:error, :not_failed}
+      other -> other
+    end
+  end
+
+  defp mark_resumed(listener) do
+    listener
+    |> ListenerState.changeset(%{status: "ok", last_error: nil})
+    |> Repo.update()
+  end
 
   defp insert_event(_repo, %{stream_id: stream_id} = event) when stream_id in [nil, ""] do
     {:error, insert_changeset(event, stream_id, nil)}
