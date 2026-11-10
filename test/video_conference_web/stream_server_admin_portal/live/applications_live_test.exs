@@ -18,7 +18,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
              live(conn, "/stream-server-admin/applications")
   end
 
-  test "lists all applications with enabled state and actions", %{conn: conn} do
+  test "lists all applications with enabled checkboxes and actions", %{conn: conn} do
     application = application_fixture(%{"name" => "billing app"})
     disabled = application_fixture(%{"name" => "off app", "enabled" => "false"})
 
@@ -26,9 +26,10 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
 
     assert html =~ "Default App"
     assert has_element?(lv, "#application-row-#{application.id}", "billing app")
-    assert has_element?(lv, "#application-row-#{application.id} td", "Yes")
-    assert has_element?(lv, "#application-row-#{disabled.id} td", "No")
-    assert has_element?(lv, "#edit-application-#{application.id}")
+    assert has_element?(lv, "#enabled-application-#{application.id}[checked]")
+    refute has_element?(lv, "#enabled-application-#{disabled.id}[checked]")
+    assert has_element?(lv, "#rename-application-#{application.id}")
+    assert has_element?(lv, "#edit-description-#{application.id}")
     assert has_element?(lv, "#delete-application-#{application.id}")
   end
 
@@ -90,28 +91,87 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
     assert has_element?(lv, "#application-form p.text-error", "can't be blank")
   end
 
-  test "edits an application and toggles enabled", %{conn: conn} do
+  test "renames an application through the name pencil modal", %{conn: conn} do
     application = application_fixture(%{"name" => "peer"})
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications/#{application.id}/edit")
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications")
+
+    lv |> element("#rename-application-#{application.id}") |> render_click()
+
+    assert has_element?(lv, "#rename-application-modal")
 
     lv
-    |> form("#application-form",
-      application: %{
-        "name" => "renamed",
-        "description" => "updated",
-        "enabled" => "false"
-      }
-    )
+    |> form("#rename-application-form", rename_application: %{"name" => "renamed"})
     |> render_submit()
-
-    assert_patch(lv, "/stream-server-admin/applications")
 
     updated = Applications.get_application!(application.id)
     assert updated.name == "renamed"
-    assert updated.description == "updated"
-    assert updated.enabled == false
+    assert updated.description == application.description
+    assert updated.enabled == application.enabled
 
-    assert has_element?(lv, "#application-row-#{application.id} td", "No")
+    refute has_element?(lv, "#rename-application-modal")
+    assert has_element?(lv, "#application-row-#{application.id}", "renamed")
+  end
+
+  test "rejects a duplicate name inline in the rename modal", %{conn: conn} do
+    application = application_fixture(%{"name" => "taken"})
+    other = application_fixture(%{"name" => "other"})
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications")
+
+    lv |> element("#rename-application-#{other.id}") |> render_click()
+
+    html =
+      lv
+      |> form("#rename-application-form", rename_application: %{"name" => "taken"})
+      |> render_submit()
+
+    assert html =~ "has already been taken"
+    assert has_element?(lv, "#rename-application-modal")
+    assert Applications.get_application!(other.id).name == "other"
+    assert Applications.get_application!(application.id).name == "taken"
+  end
+
+  test "edits an application's description through the description pencil modal",
+       %{conn: conn} do
+    application = application_fixture(%{"name" => "peer"})
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications")
+
+    lv |> element("#edit-description-#{application.id}") |> render_click()
+
+    assert has_element?(lv, "#edit-description-modal")
+
+    lv
+    |> form("#edit-description-form",
+      application_description: %{"description" => "updated desc"}
+    )
+    |> render_submit()
+
+    updated = Applications.get_application!(application.id)
+    assert updated.description == "updated desc"
+    assert updated.name == application.name
+
+    refute has_element?(lv, "#edit-description-modal")
+    assert has_element?(lv, "#application-row-#{application.id}", "updated desc")
+  end
+
+  test "toggles an application's enabled flag via the checkbox", %{conn: conn} do
+    application = application_fixture()
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications")
+
+    assert has_element?(lv, "#enabled-application-#{application.id}[checked]")
+
+    lv |> element("#enabled-application-#{application.id}") |> render_click()
+
+    assert Applications.get_application!(application.id).enabled == false
+    refute has_element?(lv, "#enabled-application-#{application.id}[checked]")
+
+    lv |> element("#enabled-application-#{application.id}") |> render_click()
+
+    assert Applications.get_application!(application.id).enabled == true
+    assert has_element?(lv, "#enabled-application-#{application.id}[checked]")
   end
 
   test "truncates descriptions longer than 50 characters with an expandable control",
@@ -134,6 +194,18 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
     # short descriptions render as plain text without a toggle
     assert has_element?(lv, "#application-row-#{short.id} td", "short desc")
     refute has_element?(lv, "#application-description-#{short.id}")
+  end
+
+  test "has no whole-row edit link or edit route", %{conn: conn} do
+    application = application_fixture()
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications")
+
+    refute has_element?(lv, "#edit-application-#{application.id}")
+    refute has_element?(lv, "a", "Edit")
+
+    conn = get(conn, "/stream-server-admin/applications/#{application.id}/edit")
+    assert conn.status == 404
   end
 
   test "removes an application and cascades to its API keys", %{conn: conn} do

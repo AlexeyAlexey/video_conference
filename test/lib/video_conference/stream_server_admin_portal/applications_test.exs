@@ -55,20 +55,104 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
-  describe "update_application/2" do
-    test "updates name, description, and enabled" do
+  describe "rename_application/2" do
+    test "renames the application" do
+      application = application_fixture()
+
+      {:ok, updated} = Applications.rename_application(application.id, "renamed")
+
+      assert updated.name == "renamed"
+      assert Applications.get_application!(application.id).name == "renamed"
+    end
+
+    test "returns an error changeset for a duplicate name" do
+      application = application_fixture()
+      other = application_fixture()
+
+      {:error, changeset} = Applications.rename_application(other.id, application.name)
+
+      assert %{name: ["has already been taken"]} = errors_on(changeset)
+    end
+
+    test "returns an error changeset without a name" do
+      application = application_fixture()
+
+      {:error, changeset} = Applications.rename_application(application.id, "")
+
+      assert %{name: ["can't be blank"]} = errors_on(changeset)
+    end
+  end
+
+  describe "edit_application_description/2" do
+    test "updates the description" do
       application = application_fixture()
 
       {:ok, updated} =
-        Applications.update_application(application, %{
-          "name" => "renamed",
-          "description" => "new desc",
-          "enabled" => false
-        })
+        Applications.edit_application_description(application.id, "new desc")
 
-      assert updated.name == "renamed"
       assert updated.description == "new desc"
-      assert updated.enabled == false
+      assert Applications.get_application!(application.id).description == "new desc"
+    end
+  end
+
+  describe "enable_application/1 and disable_application/1" do
+    test "toggles the enabled flag" do
+      application = application_fixture()
+      assert application.enabled == true
+
+      {:ok, disabled} = Applications.disable_application(application.id)
+      assert disabled.enabled == false
+      assert Applications.get_application!(application.id).enabled == false
+
+      {:ok, enabled} = Applications.enable_application(application.id)
+      assert enabled.enabled == true
+      assert Applications.get_application!(application.id).enabled == true
+    end
+  end
+
+  describe "application optimistic locking" do
+    test "increments lock_version on each update" do
+      application = application_fixture()
+      assert application.lock_version == 1
+
+      {:ok, application} = Applications.rename_application(application.id, "renamed")
+      assert application.lock_version == 2
+
+      {:ok, application} =
+        Applications.edit_application_description(application.id, "desc")
+
+      assert application.lock_version == 3
+
+      {:ok, application} = Applications.disable_application(application.id)
+      assert application.lock_version == 4
+
+      assert Applications.get_application!(application.id).lock_version == 4
+    end
+
+    test "a stale update returns an error changeset instead of raising" do
+      application = application_fixture()
+      stale = Applications.get_application!(application.id)
+
+      {:ok, _} = Applications.rename_application(application.id, "renamed")
+
+      assert {:error, changeset} =
+               stale
+               |> Application.name_changeset(%{"name" => "stale name"})
+               |> PortalRepo.update(stale_error_field: :lock_version)
+
+      assert %{lock_version: ["is stale"]} = errors_on(changeset)
+      assert Applications.get_application!(application.id).name == "renamed"
+    end
+
+    test "a stale delete returns an error changeset instead of raising" do
+      application = application_fixture()
+      stale = Applications.get_application!(application.id)
+
+      {:ok, _} = Applications.rename_application(application.id, "renamed")
+
+      assert {:error, changeset} = Applications.delete_application(stale)
+      assert %{lock_version: ["is stale"]} = errors_on(changeset)
+      assert Applications.get_application!(application.id)
     end
   end
 

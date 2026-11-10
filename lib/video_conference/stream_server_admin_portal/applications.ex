@@ -84,12 +84,44 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Updates an application.
+  Renames an application. The name must remain unique across
+  applications.
   """
-  def update_application(%Application{} = application, attrs) do
-    application
-    |> Application.changeset(attrs)
-    |> Repo.update()
+  def rename_application(id, name) do
+    id
+    |> get_application!()
+    |> Application.name_changeset(%{"name" => name})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  @doc """
+  Updates an application's description.
+  """
+  def edit_application_description(id, description) do
+    id
+    |> get_application!()
+    |> Application.description_changeset(%{"description" => description})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  @doc """
+  Enables an application.
+  """
+  def enable_application(id) do
+    id
+    |> get_application!()
+    |> Application.enabled_changeset(%{"enabled" => true})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  @doc """
+  Disables an application.
+  """
+  def disable_application(id) do
+    id
+    |> get_application!()
+    |> Application.enabled_changeset(%{"enabled" => false})
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
@@ -97,7 +129,10 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   removed by the database's `on_delete: :delete_all` foreign keys.
   """
   def delete_application(%Application{} = application) do
-    Repo.delete(application)
+    application
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.optimistic_lock(:lock_version)
+    |> Repo.delete(stale_error_field: :lock_version)
   end
 
   @doc """

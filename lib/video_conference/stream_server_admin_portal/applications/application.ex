@@ -17,6 +17,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.Application do
     field :name, :string
     field :description, :string
     field :enabled, :boolean, default: true
+    field :lock_version, :integer, default: 1
 
     has_many :api_keys, ApiKey
     has_many :stream_server_public_keys, StreamServerPublicKey
@@ -36,5 +37,37 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.Application do
     |> validate_required([:name])
     |> unsafe_validate_unique(:name, Repo)
     |> unique_constraint(:name)
+  end
+
+  @doc """
+  A changeset for renaming an application. Keeps the required and
+  unique-name validations.
+  """
+  def name_changeset(%__MODULE__{} = application, attrs) do
+    application
+    |> cast(attrs, [:name])
+    |> validate_required([:name])
+    |> unsafe_validate_unique(:name, Repo)
+    |> unique_constraint(:name)
+    |> optimistic_lock(:lock_version)
+  end
+
+  @doc """
+  A changeset for editing an application's description.
+  """
+  def description_changeset(%__MODULE__{} = application, attrs) do
+    application
+    |> cast(attrs, [:description])
+    |> optimistic_lock(:lock_version)
+  end
+
+  @doc """
+  A changeset for toggling an application's enabled flag.
+  """
+  def enabled_changeset(%__MODULE__{} = application, attrs) do
+    application
+    |> cast(attrs, [:enabled])
+    |> validate_required([:enabled])
+    |> optimistic_lock(:lock_version)
   end
 end
