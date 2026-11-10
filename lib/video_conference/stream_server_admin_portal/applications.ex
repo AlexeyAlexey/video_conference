@@ -17,6 +17,12 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   alias VideoConference.StreamServerAdminPortal.Applications.{
     ApiKey,
     Application,
+    ApplicationDescriptionWasUpdated,
+    ApplicationWasAdded,
+    ApplicationWasDisabled,
+    ApplicationWasEnabled,
+    ApplicationWasRemoved,
+    ApplicationWasRenamed,
     StreamServerPublicKey,
     StreamServerPublicKeyAddedEvent
   }
@@ -76,11 +82,18 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
 
   @doc """
   Creates an application.
+
+  Commits the record and an `ApplicationWasAdded` event on the
+  application's stream in the same transaction.
   """
   def create_application(attrs \\ %{}) do
-    %Application{}
-    |> Application.changeset(attrs)
-    |> Repo.insert()
+    Multi.new()
+    |> Multi.insert(:application, Application.changeset(%Application{}, attrs))
+    |> Multi.merge(fn %{application: application} ->
+      EventStore.append([ApplicationWasAdded.new(application)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
@@ -88,51 +101,98 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   applications.
   """
   def rename_application(id, name) do
-    id
-    |> get_application!()
-    |> Application.name_changeset(%{"name" => name})
-    |> Repo.update(stale_error_field: :lock_version)
+    application = get_application!(id)
+
+    Multi.new()
+    |> Multi.update(
+      :application,
+      Application.name_changeset(application, %{"name" => name}),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn %{application: application} ->
+      EventStore.append([ApplicationWasRenamed.new(application)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
   Updates an application's description.
   """
   def edit_application_description(id, description) do
-    id
-    |> get_application!()
-    |> Application.description_changeset(%{"description" => description})
-    |> Repo.update(stale_error_field: :lock_version)
+    application = get_application!(id)
+
+    Multi.new()
+    |> Multi.update(
+      :application,
+      Application.description_changeset(application, %{"description" => description}),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn %{application: application} ->
+      EventStore.append([ApplicationDescriptionWasUpdated.new(application)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
   Enables an application.
   """
   def enable_application(id) do
-    id
-    |> get_application!()
-    |> Application.enabled_changeset(%{"enabled" => true})
-    |> Repo.update(stale_error_field: :lock_version)
+    application = get_application!(id)
+
+    Multi.new()
+    |> Multi.update(
+      :application,
+      Application.enabled_changeset(application, %{"enabled" => true}),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn %{application: application} ->
+      EventStore.append([ApplicationWasEnabled.new(application)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
   Disables an application.
   """
   def disable_application(id) do
-    id
-    |> get_application!()
-    |> Application.enabled_changeset(%{"enabled" => false})
-    |> Repo.update(stale_error_field: :lock_version)
+    application = get_application!(id)
+
+    Multi.new()
+    |> Multi.update(
+      :application,
+      Application.enabled_changeset(application, %{"enabled" => false}),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn %{application: application} ->
+      EventStore.append([ApplicationWasDisabled.new(application)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
-  Deletes an application. Its API keys and stream server public keys are
+  Removes an application. Its API keys and stream server public keys are
   removed by the database's `on_delete: :delete_all` foreign keys.
+
+  Commits the delete and an `ApplicationWasRemoved` event on the
+  application's stream in the same transaction.
   """
-  def delete_application(%Application{} = application) do
-    application
-    |> Ecto.Changeset.change()
-    |> Ecto.Changeset.optimistic_lock(:lock_version)
-    |> Repo.delete(stale_error_field: :lock_version)
+  def remove_application(%Application{} = application) do
+    changeset =
+      application
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.optimistic_lock(:lock_version)
+
+    Multi.new()
+    |> Multi.delete(:application, changeset, stale_error_field: :lock_version)
+    |> Multi.merge(fn _changes ->
+      EventStore.append([ApplicationWasRemoved.new(application)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
@@ -141,6 +201,13 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   def change_application(%Application{} = application, attrs \\ %{}) do
     Application.changeset(application, attrs)
   end
+
+  defp transaction_result({:ok, %{application: application}}), do: {:ok, application}
+
+  defp transaction_result({:error, _operation, %Ecto.Changeset{} = changeset, _changes}),
+    do: {:error, changeset}
+
+  defp transaction_result({:error, _operation, error, _changes}), do: {:error, error}
 
   ## API keys
 

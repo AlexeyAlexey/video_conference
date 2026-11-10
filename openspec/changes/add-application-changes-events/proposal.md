@@ -30,7 +30,7 @@ keys.
   optimistic-concurrency counter.
 - Rework `create_application/1`, `rename_application/2`,
   `edit_application_description/2`, `enable_application/1`,
-  `disable_application/1`, and `delete_application/1` to run inside an
+  `disable_application/1`, and `remove_application/1` to run inside an
   `Ecto.Multi` that appends the matching event via
   `EventStore.append`, mirroring `create_stream_server_public_key/1` —
   record change and event commit or roll back together. Return shapes

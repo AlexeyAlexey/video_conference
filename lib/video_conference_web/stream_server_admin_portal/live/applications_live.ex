@@ -51,7 +51,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLive do
   def handle_event("delete", %{"id" => id}, socket) do
     application = Applications.get_application!(id)
 
-    case Applications.delete_application(application) do
+    case Applications.remove_application(application) do
       {:ok, _application} ->
         {:noreply,
          socket

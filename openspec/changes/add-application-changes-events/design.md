@@ -6,7 +6,7 @@
 optimistic locking: each update path fetches via `get_application!/1`,
 applies a per-field changeset (`name_changeset`, `description_changeset`,
 `enabled_changeset`), and calls `Repo.update(stale_error_field: :lock_version)`;
-`delete_application/1` wraps the struct in `change() |> optimistic_lock`
+`remove_application/1` wraps the struct in `change() |> optimistic_lock`
 before `Repo.delete`; `create_application/1` is a bare `Repo.insert`.
 `EventStore.append/1,2` returns an `Ecto.Multi` that bumps the event's
 stream counter and the `$all` counter inside the caller's transaction —

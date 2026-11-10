@@ -370,7 +370,7 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
       stream_server = stream_server_fixture()
       {:ok, _} = StreamServers.assign_application(stream_server.id, application.id)
 
-      {:ok, _} = Applications.delete_application(application)
+      {:ok, _} = Applications.remove_application(application)
 
       loaded = StreamServers.get_stream_server!(stream_server.id)
       assert loaded.applications == []
