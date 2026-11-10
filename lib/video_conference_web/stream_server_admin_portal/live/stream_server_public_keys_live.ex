@@ -79,7 +79,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
   def handle_event("delete", %{"id" => id}, socket) do
     key = Applications.get_stream_server_public_key!(id)
 
-    case Applications.delete_stream_server_public_key(key) do
+    case Applications.remove_stream_server_public_key(key) do
       {:ok, _key} ->
         {:noreply,
          socket
@@ -185,7 +185,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
         %{"change_app" => %{"application_id" => application_id}},
         socket
       ) do
-    case Applications.switch_stream_server_public_key_application(
+    case Applications.move_stream_server_public_key_to_application(
            socket.assigns.modal_key.id,
            application_id
          ) do

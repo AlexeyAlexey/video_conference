@@ -24,7 +24,11 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     ApplicationWasRemoved,
     ApplicationWasRenamed,
     StreamServerPublicKey,
-    StreamServerPublicKeyAddedEvent
+    StreamServerPublicKeyWasAdded,
+    StreamServerPublicKeyWasDisabled,
+    StreamServerPublicKeyWasEnabled,
+    StreamServerPublicKeyWasMoved,
+    StreamServerPublicKeyWasRemoved
   }
 
   ## Applications
@@ -204,6 +208,8 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
 
   defp transaction_result({:ok, %{application: application}}), do: {:ok, application}
 
+  defp transaction_result({:ok, %{stream_server_public_key: key}}), do: {:ok, key}
+
   defp transaction_result({:error, _operation, %Ecto.Changeset{} = changeset, _changes}),
     do: {:error, changeset}
 
@@ -301,14 +307,10 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
       StreamServerPublicKey.changeset(%StreamServerPublicKey{}, attrs)
     )
     |> Multi.merge(fn %{stream_server_public_key: key} ->
-      EventStore.append([StreamServerPublicKeyAddedEvent.new(key)])
+      EventStore.append([StreamServerPublicKeyWasAdded.new(key)])
     end)
     |> Repo.transaction()
-    |> case do
-      {:ok, %{stream_server_public_key: key}} -> {:ok, key}
-      {:error, _operation, %Ecto.Changeset{} = changeset, _changes} -> {:error, changeset}
-      {:error, _operation, error, _changes} -> {:error, error}
-    end
+    |> transaction_result()
   end
 
   @doc """
@@ -337,42 +339,89 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   Moves a stream server public key to another application. The public
   key material is immutable and cannot be changed through this
   function.
+
+  Commits the update and a `StreamServerPublicKeyWasMoved` event on the
+  key's stream in the same transaction.
   """
-  def switch_stream_server_public_key_application(id, application_id) do
-    id
-    |> get_stream_server_public_key!()
-    |> StreamServerPublicKey.application_changeset(%{"application_id" => application_id})
-    |> Repo.update(stale_error_field: :lock_version)
+  def move_stream_server_public_key_to_application(id, application_id) do
+    key = get_stream_server_public_key!(id)
+
+    Multi.new()
+    |> Multi.update(
+      :stream_server_public_key,
+      StreamServerPublicKey.application_changeset(key, %{"application_id" => application_id}),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn %{stream_server_public_key: moved} ->
+      EventStore.append([StreamServerPublicKeyWasMoved.new(key, moved)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
   Enables a stream server public key.
+
+  Commits the update and a `StreamServerPublicKeyWasEnabled` event on
+  the key's stream in the same transaction.
   """
   def enable_stream_server_public_key(id) do
-    id
-    |> get_stream_server_public_key!()
-    |> StreamServerPublicKey.enabled_changeset(%{"enabled" => true})
-    |> Repo.update(stale_error_field: :lock_version)
+    key = get_stream_server_public_key!(id)
+
+    Multi.new()
+    |> Multi.update(
+      :stream_server_public_key,
+      StreamServerPublicKey.enabled_changeset(key, %{"enabled" => true}),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn %{stream_server_public_key: key} ->
+      EventStore.append([StreamServerPublicKeyWasEnabled.new(key)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
   Disables a stream server public key.
+
+  Commits the update and a `StreamServerPublicKeyWasDisabled` event on
+  the key's stream in the same transaction.
   """
   def disable_stream_server_public_key(id) do
-    id
-    |> get_stream_server_public_key!()
-    |> StreamServerPublicKey.enabled_changeset(%{"enabled" => false})
-    |> Repo.update(stale_error_field: :lock_version)
+    key = get_stream_server_public_key!(id)
+
+    Multi.new()
+    |> Multi.update(
+      :stream_server_public_key,
+      StreamServerPublicKey.enabled_changeset(key, %{"enabled" => false}),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn %{stream_server_public_key: key} ->
+      EventStore.append([StreamServerPublicKeyWasDisabled.new(key)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
-  Deletes a stream server public key.
+  Removes a stream server public key.
+
+  Commits the delete and a `StreamServerPublicKeyWasRemoved` event on
+  the key's stream in the same transaction.
   """
-  def delete_stream_server_public_key(%StreamServerPublicKey{} = key) do
-    key
-    |> Ecto.Changeset.change()
-    |> Ecto.Changeset.optimistic_lock(:lock_version)
-    |> Repo.delete(stale_error_field: :lock_version)
+  def remove_stream_server_public_key(%StreamServerPublicKey{} = key) do
+    changeset =
+      key
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.optimistic_lock(:lock_version)
+
+    Multi.new()
+    |> Multi.delete(:stream_server_public_key, changeset, stale_error_field: :lock_version)
+    |> Multi.merge(fn _changes ->
+      EventStore.append([StreamServerPublicKeyWasRemoved.new(key)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """

@@ -1,7 +1,7 @@
 defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest do
   use VideoConference.DataCase, async: false
 
-  alias VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent
+  alias VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyWasAdded
   alias VideoConference.StreamServerAdminPortal.EventStore
 
   alias VideoConference.StreamServerAdminPortal.EventStore.{
@@ -33,7 +33,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       name: "recording-listener",
       description: "records delivered events",
       events: [
-        VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent
+        VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyWasAdded
       ],
       retries: 0
 
@@ -49,7 +49,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       name: "raising-listener",
       description: "always raises",
       events: [
-        VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent
+        VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyWasAdded
       ],
       retries: 2,
       backoff: 25,
@@ -66,7 +66,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
     use VideoConference.StreamServerAdminPortal.EventStore.Listener,
       name: "other-boot-listener",
       events: [
-        VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent
+        VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyWasAdded
       ]
 
     @impl true
@@ -114,14 +114,14 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
         enabled: true,
         description: nil
       })
-      |> then(&struct!(StreamServerPublicKeyAddedEvent, &1))
+      |> then(&struct!(StreamServerPublicKeyWasAdded, &1))
 
     {:ok, _} = PortalRepo.transaction(EventStore.append([event]))
     event
   end
 
   defp last_seq do
-    EventStore.get_events([inspect(StreamServerPublicKeyAddedEvent)], 0)
+    EventStore.get_events([inspect(StreamServerPublicKeyWasAdded)], 0)
     |> List.last()
     |> Map.fetch!(:seq)
   end
@@ -189,7 +189,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
         version: 1,
         event_type: "Not.Subscribed",
         payload:
-          :erlang.term_to_binary(%StreamServerPublicKeyAddedEvent{
+          :erlang.term_to_binary(%StreamServerPublicKeyWasAdded{
             stream_id: Ecto.UUID.generate(),
             name: "other"
           })
@@ -197,9 +197,9 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
 
       {:ok, _pid} = start_runner(RecordingListener)
 
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "first"}}
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "second"}}
-      refute_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "other"}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "first"}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "second"}}
+      refute_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "other"}}
     end
 
     @tag capture_log: true
@@ -207,7 +207,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       first = append_event(%{name: "first"})
       {:ok, _pid} = start_runner(RecordingListener)
 
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "first"}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "first"}}
 
       seq = last_seq()
       eventually(fn -> assert listener_state("recording-listener").last_seen_seq == seq end)
@@ -215,7 +215,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       Application.put_env(:video_conference, :test_listener_result, {:error, :boom})
       second = append_event(%{name: "second"})
 
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "second"}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "second"}}
 
       eventually(fn ->
         listener = listener_state("recording-listener")
@@ -260,7 +260,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       {:ok, pid} = start_runner(RecordingListener)
       ref = Process.monitor(pid)
 
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{}}
       assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
       refute Process.alive?(pid)
 
@@ -271,7 +271,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       append_event(%{name: "never-delivered"})
 
       refute_receive {:recording_listener,
-                      %StreamServerPublicKeyAddedEvent{name: "never-delivered"}}
+                      %StreamServerPublicKeyWasAdded{name: "never-delivered"}}
     end
   end
 
@@ -333,7 +333,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
 
       failed_event = append_event(%{name: "poison"})
       {:ok, _pid} = start_runner(RecordingListener)
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "poison"}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "poison"}}
 
       eventually(fn ->
         assert listener_state("recording-listener").status == "failed"
@@ -351,8 +351,8 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       assert listener.status == "ok"
       assert listener.last_error == nil
 
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "poison"}}
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "later"}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "poison"}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{name: "later"}}
 
       eventually(fn ->
         assert listener_state("recording-listener").last_seen_seq == last_seq()
@@ -369,7 +369,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       application = StreamServerAdminPortalFixtures.application_fixture()
       key = StreamServerAdminPortalFixtures.stream_server_public_key_fixture(application)
 
-      assert_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{stream_id: stream_id}}
+      assert_receive {:recording_listener, %StreamServerPublicKeyWasAdded{stream_id: stream_id}}
 
       assert stream_id == key.id
 

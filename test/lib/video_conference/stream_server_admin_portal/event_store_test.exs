@@ -2,7 +2,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
   use VideoConference.DataCase, async: false
 
   alias Ecto.Multi
-  alias VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent
+  alias VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyWasAdded
   alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.EventStore.{Event, Stream}
   alias VideoConference.StreamServerAdminPortal.Repo, as: PortalRepo
@@ -16,10 +16,10 @@ defmodule VideoConference.StreamServerAdminPortal.EventStoreTest do
       enabled: true,
       description: nil
     })
-    |> then(&struct!(StreamServerPublicKeyAddedEvent, &1))
+    |> then(&struct!(StreamServerPublicKeyWasAdded, &1))
   end
 
-  defp event_type, do: inspect(StreamServerPublicKeyAddedEvent)
+  defp event_type, do: inspect(StreamServerPublicKeyWasAdded)
 
   describe "append/1" do
     test "persists events with increasing seq on a created stream" do

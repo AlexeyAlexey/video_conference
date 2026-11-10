@@ -13,7 +13,11 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     ApplicationWasRemoved,
     ApplicationWasRenamed,
     StreamServerPublicKey,
-    StreamServerPublicKeyAddedEvent
+    StreamServerPublicKeyWasAdded,
+    StreamServerPublicKeyWasDisabled,
+    StreamServerPublicKeyWasEnabled,
+    StreamServerPublicKeyWasMoved,
+    StreamServerPublicKeyWasRemoved
   }
 
   alias VideoConference.StreamServerAdminPortal.EventStore
@@ -486,7 +490,7 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       end
     end
 
-    test "commits the key and a StreamServerPublicKeyAddedEvent together" do
+    test "commits the key and a StreamServerPublicKeyWasAdded together" do
       application = application_fixture()
 
       {:ok, %StreamServerPublicKey{} = key} =
@@ -498,18 +502,20 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
         })
 
       assert [stored] =
-               EventStore.get_events([inspect(StreamServerPublicKeyAddedEvent)], 0)
+               EventStore.get_events([inspect(StreamServerPublicKeyWasAdded)], 0)
 
       assert stored.stream_id == key.id
       assert stored.version == 1
 
-      assert stored.payload == %StreamServerPublicKeyAddedEvent{
+      assert stored.payload == %StreamServerPublicKeyWasAdded{
                stream_id: key.id,
+               id: key.id,
                application_id: application.id,
                name: "key one",
                key: valid_public_key_pem(),
                enabled: true,
-               description: "desc"
+               description: "desc",
+               lock_version: 1
              }
     end
 
@@ -527,7 +533,7 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
                Ecto.Multi.new()
                |> Ecto.Multi.insert(:stream_server_public_key, changeset)
                |> Ecto.Multi.merge(fn _changes ->
-                 EventStore.append([%StreamServerPublicKeyAddedEvent{stream_id: nil}])
+                 EventStore.append([%StreamServerPublicKeyWasAdded{stream_id: nil}])
                end)
                |> PortalRepo.transaction()
 
@@ -641,8 +647,8 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
-  describe "StreamServerPublicKeyAddedEvent.new/1" do
-    test "maps all fields from the key" do
+  describe "stream server public key event constructors" do
+    test "StreamServerPublicKeyWasAdded maps all fields from the key" do
       key = %StreamServerPublicKey{
         id: Ecto.UUID.generate(),
         lock_version: 2,
@@ -653,14 +659,100 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
         description: "desc"
       }
 
-      assert StreamServerPublicKeyAddedEvent.new(key) == %StreamServerPublicKeyAddedEvent{
+      assert StreamServerPublicKeyWasAdded.new(key) == %StreamServerPublicKeyWasAdded{
                stream_id: key.id,
+               id: key.id,
                application_id: key.application_id,
                name: "name",
                key: "pem",
                enabled: false,
-               description: "desc"
+               description: "desc",
+               lock_version: 2
              }
+    end
+
+    test "StreamServerPublicKeyWasEnabled maps all fields from the key" do
+      key = %StreamServerPublicKey{
+        id: Ecto.UUID.generate(),
+        lock_version: 3,
+        application_id: Ecto.UUID.generate(),
+        name: "name",
+        key: "pem",
+        enabled: true
+      }
+
+      assert StreamServerPublicKeyWasEnabled.new(key) == %StreamServerPublicKeyWasEnabled{
+               stream_id: key.id,
+               id: key.id,
+               lock_version: 3
+             }
+    end
+
+    test "StreamServerPublicKeyWasDisabled maps all fields from the key" do
+      key = %StreamServerPublicKey{
+        id: Ecto.UUID.generate(),
+        lock_version: 4,
+        application_id: Ecto.UUID.generate(),
+        name: "name",
+        key: "pem",
+        enabled: false
+      }
+
+      assert StreamServerPublicKeyWasDisabled.new(key) == %StreamServerPublicKeyWasDisabled{
+               stream_id: key.id,
+               id: key.id,
+               lock_version: 4
+             }
+    end
+
+    test "StreamServerPublicKeyWasRemoved maps all fields from the key" do
+      key = %StreamServerPublicKey{
+        id: Ecto.UUID.generate(),
+        lock_version: 5,
+        application_id: Ecto.UUID.generate(),
+        name: "name",
+        key: "pem",
+        enabled: true
+      }
+
+      assert StreamServerPublicKeyWasRemoved.new(key) == %StreamServerPublicKeyWasRemoved{
+               stream_id: key.id,
+               id: key.id,
+               lock_version: 5
+             }
+    end
+
+    test "StreamServerPublicKeyWasMoved maps applications from the pre- and post-move keys" do
+      from_application_id = Ecto.UUID.generate()
+      to_application_id = Ecto.UUID.generate()
+      key_id = Ecto.UUID.generate()
+
+      before_move = %StreamServerPublicKey{
+        id: key_id,
+        lock_version: 1,
+        application_id: from_application_id,
+        name: "name",
+        key: "pem",
+        enabled: true
+      }
+
+      after_move = %StreamServerPublicKey{
+        id: key_id,
+        lock_version: 2,
+        application_id: to_application_id,
+        name: "name",
+        key: "pem",
+        enabled: true
+      }
+
+      assert StreamServerPublicKeyWasMoved.new(before_move, after_move) ==
+               %StreamServerPublicKeyWasMoved{
+                 stream_id: key_id,
+                 id: key_id,
+                 from_application_id: from_application_id,
+                 to_application_id: to_application_id,
+                 lock_version: 2
+               }
     end
   end
 
@@ -678,7 +770,7 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert key.lock_version == 3
 
       {:ok, key} =
-        Applications.switch_stream_server_public_key_application(key.id, other.id)
+        Applications.move_stream_server_public_key_to_application(key.id, other.id)
 
       assert key.lock_version == 4
 
@@ -709,9 +801,10 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
       {:ok, _} = Applications.rename_stream_server_public_key(key.id, "renamed")
 
-      assert {:error, changeset} = Applications.delete_stream_server_public_key(stale)
+      assert {:error, changeset} = Applications.remove_stream_server_public_key(stale)
       assert %{lock_version: ["is stale"]} = errors_on(changeset)
       assert Applications.get_stream_server_public_key!(key.id)
+      assert EventStore.get_events([inspect(StreamServerPublicKeyWasRemoved)], 0) == []
     end
   end
 
@@ -762,34 +855,60 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
-  describe "switch_stream_server_public_key_application/2" do
+  describe "move_stream_server_public_key_to_application/2" do
     test "moves the key to another application" do
       application = application_fixture()
       other = application_fixture()
       key = stream_server_public_key_fixture(application)
 
       {:ok, updated} =
-        Applications.switch_stream_server_public_key_application(key.id, other.id)
+        Applications.move_stream_server_public_key_to_application(key.id, other.id)
 
       assert updated.application_id == other.id
 
       assert Applications.get_stream_server_public_key!(key.id).application_id == other.id
     end
 
-    test "returns an error changeset without an application" do
+    test "stores a StreamServerPublicKeyWasMoved event with both applications" do
+      application = application_fixture()
+      other = application_fixture()
+      key = stream_server_public_key_fixture(application)
+
+      {:ok, updated} =
+        Applications.move_stream_server_public_key_to_application(key.id, other.id)
+
+      assert updated.lock_version == 2
+
+      assert [stored] =
+               EventStore.get_events([inspect(StreamServerPublicKeyWasMoved)], 0)
+
+      assert stored.stream_id == key.id
+      assert stored.version == 2
+
+      assert stored.payload == %StreamServerPublicKeyWasMoved{
+               stream_id: key.id,
+               id: key.id,
+               from_application_id: application.id,
+               to_application_id: other.id,
+               lock_version: 2
+             }
+    end
+
+    test "returns an error changeset without an application and stores no event" do
       key = stream_server_public_key_fixture(application_fixture())
 
       {:error, changeset} =
-        Applications.switch_stream_server_public_key_application(key.id, nil)
+        Applications.move_stream_server_public_key_to_application(key.id, nil)
 
       assert %{application_id: ["can't be blank"]} = errors_on(changeset)
+      assert EventStore.get_events([inspect(StreamServerPublicKeyWasMoved)], 0) == []
     end
 
     test "raises a constraint error for a nonexistent application" do
       key = stream_server_public_key_fixture(application_fixture())
 
       assert_raise Ecto.ConstraintError, fn ->
-        Applications.switch_stream_server_public_key_application(key.id, Ecto.UUID.generate())
+        Applications.move_stream_server_public_key_to_application(key.id, Ecto.UUID.generate())
       end
     end
   end
@@ -807,17 +926,85 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert enabled.enabled == true
       assert Applications.get_stream_server_public_key!(key.id).enabled == true
     end
+
+    test "stores enabled and disabled events with the incremented lock_version" do
+      key = stream_server_public_key_fixture(application_fixture())
+
+      {:ok, disabled} = Applications.disable_stream_server_public_key(key.id)
+      assert disabled.lock_version == 2
+
+      {:ok, enabled} = Applications.enable_stream_server_public_key(key.id)
+      assert enabled.lock_version == 3
+
+      assert [disabled_event] =
+               EventStore.get_events([inspect(StreamServerPublicKeyWasDisabled)], 0)
+
+      assert disabled_event.stream_id == key.id
+
+      assert disabled_event.payload == %StreamServerPublicKeyWasDisabled{
+               stream_id: key.id,
+               id: key.id,
+               lock_version: 2
+             }
+
+      assert [enabled_event] =
+               EventStore.get_events([inspect(StreamServerPublicKeyWasEnabled)], 0)
+
+      assert enabled_event.stream_id == key.id
+
+      assert enabled_event.payload == %StreamServerPublicKeyWasEnabled{
+               stream_id: key.id,
+               id: key.id,
+               lock_version: 3
+             }
+    end
+
+    test "toggling an already-set flag still stores the event" do
+      key = stream_server_public_key_fixture(application_fixture())
+      assert key.enabled == true
+
+      {:ok, still_enabled} = Applications.enable_stream_server_public_key(key.id)
+      assert still_enabled.enabled == true
+
+      assert [stored] =
+               EventStore.get_events([inspect(StreamServerPublicKeyWasEnabled)], 0)
+
+      assert stored.payload == %StreamServerPublicKeyWasEnabled{
+               stream_id: key.id,
+               id: key.id,
+               lock_version: 1
+             }
+    end
   end
 
-  describe "delete_stream_server_public_key/1" do
+  describe "remove_stream_server_public_key/1" do
     test "removes the key" do
       key = stream_server_public_key_fixture(application_fixture())
 
-      {:ok, _} = Applications.delete_stream_server_public_key(key)
+      {:ok, _} = Applications.remove_stream_server_public_key(key)
 
       assert_raise Ecto.NoResultsError, fn ->
         Applications.get_stream_server_public_key!(key.id)
       end
+    end
+
+    test "stores a StreamServerPublicKeyWasRemoved event with the matched lock_version" do
+      key = stream_server_public_key_fixture(application_fixture())
+      {:ok, renamed} = Applications.rename_stream_server_public_key(key.id, "renamed")
+
+      {:ok, _} = Applications.remove_stream_server_public_key(renamed)
+
+      assert [stored] =
+               EventStore.get_events([inspect(StreamServerPublicKeyWasRemoved)], 0)
+
+      assert stored.stream_id == key.id
+      assert stored.version == 2
+
+      assert stored.payload == %StreamServerPublicKeyWasRemoved{
+               stream_id: key.id,
+               id: key.id,
+               lock_version: 2
+             }
     end
   end
 

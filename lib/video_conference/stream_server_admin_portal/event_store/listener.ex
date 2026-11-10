@@ -12,14 +12,14 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.Listener do
           name: "my-listener",
           description: "keeps a projection up to date",
           events: [
-            VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyAddedEvent
+            VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKeyWasAdded
           ],
           retries: 5,
           backoff: 500,
           max_backoff: 30_000
 
         @impl true
-        def handle_event(%StreamServerPublicKeyAddedEvent{} = event) do
+        def handle_event(%StreamServerPublicKeyWasAdded{} = event) do
           # ...
           :ok
         end
