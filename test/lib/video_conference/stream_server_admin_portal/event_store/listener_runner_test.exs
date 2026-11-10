@@ -78,7 +78,11 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
 
     on_exit(fn ->
       for {_, pid, _, _} <- DynamicSupervisor.which_children(ListenersSupervisor) do
-        DynamicSupervisor.terminate_child(ListenersSupervisor, pid)
+        try do
+          GenServer.stop(pid)
+        catch
+          :exit, _ -> :ok
+        end
       end
 
       Application.delete_env(:video_conference, :test_listener_inbox)
@@ -153,7 +157,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
         ListenerState.changeset(listener, %{last_seen_seq: 7, description: "stale"})
       )
 
-      DynamicSupervisor.terminate_child(ListenersSupervisor, pid)
+      GenServer.stop(pid)
 
       {:ok, _pid} = start_runner(RecordingListener)
 
@@ -198,6 +202,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       refute_receive {:recording_listener, %StreamServerPublicKeyAddedEvent{name: "other"}}
     end
 
+    @tag capture_log: true
     test "advances the cursor only after a successful delivery" do
       first = append_event(%{name: "first"})
       {:ok, _pid} = start_runner(RecordingListener)
@@ -223,6 +228,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
   end
 
   describe "retries" do
+    @tag capture_log: true
     test "retries a raised handler the configured number of times with backoff" do
       append_event()
       {:ok, _pid} = start_runner(RaisingListener)
@@ -246,6 +252,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
   end
 
   describe "failure" do
+    @tag capture_log: true
     test "marks the listener failed, halts the runner, and stops delivering" do
       Application.put_env(:video_conference, :test_listener_result, {:error, :boom})
 
@@ -320,6 +327,7 @@ defmodule VideoConference.StreamServerAdminPortal.EventStore.ListenerRunnerTest 
       assert {:error, :not_failed} = EventStore.resume_listener("recording-listener")
     end
 
+    @tag capture_log: true
     test "clears the failure and retries the failed event first" do
       Application.put_env(:video_conference, :test_listener_result, {:error, :boom})
 

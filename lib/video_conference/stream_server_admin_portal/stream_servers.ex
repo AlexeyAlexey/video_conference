@@ -75,12 +75,47 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   end
 
   @doc """
-  Updates a stream server.
+  Renames a stream server. `host` is immutable and cannot be changed
+  through this function.
   """
-  def update_stream_server(%StreamServer{} = stream_server, attrs) do
-    stream_server
-    |> StreamServer.changeset(attrs)
-    |> Repo.update()
+  def rename_stream_server(id, name) do
+    id
+    |> get_stream_server!()
+    |> StreamServer.name_changeset(%{"name" => name})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  @doc """
+  Updates a stream server's description. `host` is immutable and cannot
+  be changed through this function.
+  """
+  def edit_stream_server_description(id, description) do
+    id
+    |> get_stream_server!()
+    |> StreamServer.description_changeset(%{"description" => description})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  @doc """
+  Updates a stream server's country. `host` is immutable and cannot be
+  changed through this function.
+  """
+  def edit_stream_server_country(id, country) do
+    id
+    |> get_stream_server!()
+    |> StreamServer.country_changeset(%{"country" => country})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  @doc """
+  Updates a stream server's certificate hash. `host` is immutable and
+  cannot be changed through this function.
+  """
+  def edit_stream_server_cert_hash(id, cert_hash) do
+    id
+    |> get_stream_server!()
+    |> StreamServer.cert_hash_changeset(%{"cert_hash" => cert_hash})
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
@@ -88,7 +123,10 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   database's `on_delete: :delete_all` foreign key.
   """
   def delete_stream_server(%StreamServer{} = stream_server) do
-    Repo.delete(stream_server)
+    stream_server
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.optimistic_lock(:lock_version)
+    |> Repo.delete(stale_error_field: :lock_version)
   end
 
   @doc """
@@ -99,18 +137,33 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   end
 
   @doc """
-  Replaces the server's assigned applications with exactly the
-  applications matching `application_ids`, returning the updated server
-  with its applications preloaded.
+  Assigns one application to a stream server, returning the server
+  reloaded with its applications preloaded. Assigning an already
+  assigned application is a no-op.
   """
-  def assign_applications(%StreamServer{} = stream_server, application_ids) do
-    applications =
-      Repo.all(from a in Application, where: a.id in ^List.wrap(application_ids))
+  def assign_application(stream_server_id, application_id) do
+    Repo.insert(
+      %ApplicationStreamServer{
+        stream_server_id: stream_server_id,
+        application_id: application_id
+      },
+      on_conflict: :nothing
+    )
 
-    stream_server
-    |> Repo.preload(:applications)
-    |> Ecto.Changeset.change()
-    |> Ecto.Changeset.put_assoc(:applications, applications)
-    |> Repo.update()
+    {:ok, get_stream_server!(stream_server_id)}
+  end
+
+  @doc """
+  Removes one application's assignment from a stream server, returning
+  the server reloaded with its applications preloaded. Unassigning an
+  application that is not assigned is a no-op.
+  """
+  def unassign_application(stream_server_id, application_id) do
+    Repo.delete_all(
+      from j in ApplicationStreamServer,
+        where: j.stream_server_id == ^stream_server_id and j.application_id == ^application_id
+    )
+
+    {:ok, get_stream_server!(stream_server_id)}
   end
 end

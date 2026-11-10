@@ -24,6 +24,7 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
     field :country, :string
     field :settings, :map, default: %{}
     field :cert_hash, :string
+    field :lock_version, :integer, default: 1
 
     many_to_many :applications, Application,
       join_through: ApplicationStreamServer,
@@ -36,9 +37,9 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
   @doc """
   A stream server changeset.
 
-  Requires a unique `name` and restricts `country` to the supported ISO
-  alpha-2 codes in `Countries`. `description`, `host`, `settings`, and
-  `cert_hash` are optional.
+  Requires a unique `name` and a unique `host` when one is given, and
+  restricts `country` to the supported ISO alpha-2 codes in
+  `Countries`. `description`, `settings`, and `cert_hash` are optional.
   """
   def changeset(%__MODULE__{} = stream_server, attrs) do
     stream_server
@@ -47,5 +48,49 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
     |> validate_inclusion(:country, Countries.codes())
     |> unsafe_validate_unique(:name, Repo)
     |> unique_constraint(:name)
+    |> unsafe_validate_unique(:host, Repo)
+    |> unique_constraint(:host)
+  end
+
+  @doc """
+  A changeset for renaming a stream server. `host` is immutable and
+  cannot be changed through this changeset.
+  """
+  def name_changeset(%__MODULE__{} = stream_server, attrs) do
+    stream_server
+    |> cast(attrs, [:name])
+    |> validate_required([:name])
+    |> unsafe_validate_unique(:name, Repo)
+    |> unique_constraint(:name)
+    |> optimistic_lock(:lock_version)
+  end
+
+  @doc """
+  A changeset for editing a stream server's description.
+  """
+  def description_changeset(%__MODULE__{} = stream_server, attrs) do
+    stream_server
+    |> cast(attrs, [:description])
+    |> optimistic_lock(:lock_version)
+  end
+
+  @doc """
+  A changeset for editing a stream server's country, restricted to the
+  supported ISO alpha-2 codes in `Countries`.
+  """
+  def country_changeset(%__MODULE__{} = stream_server, attrs) do
+    stream_server
+    |> cast(attrs, [:country])
+    |> validate_inclusion(:country, Countries.codes())
+    |> optimistic_lock(:lock_version)
+  end
+
+  @doc """
+  A changeset for editing a stream server's certificate hash.
+  """
+  def cert_hash_changeset(%__MODULE__{} = stream_server, attrs) do
+    stream_server
+    |> cast(attrs, [:cert_hash])
+    |> optimistic_lock(:lock_version)
   end
 end
