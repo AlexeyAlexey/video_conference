@@ -86,7 +86,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLive do
   def handle_event("delete", %{"id" => id}, socket) do
     stream_server = StreamServers.get_stream_server!(id)
 
-    case StreamServers.delete_stream_server(stream_server) do
+    case StreamServers.remove_stream_server(stream_server) do
       {:ok, _stream_server} ->
         {:noreply,
          socket

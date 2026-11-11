@@ -108,10 +108,13 @@ three `Multi` steps: `Multi.insert(:assignment,
 %ApplicationStreamServer{...}, on_conflict: :nothing)` /
 `Multi.delete_all(:assignment, query)`, then
 `Multi.update(:stream_server, change(server) |>
-optimistic_lock(:lock_version), stale_error_field: :lock_version)` for
-the version bump (the server is loaded once at the top via
-`get_stream_server!/1`), then `Multi.merge` appending the event built
-from the bumped struct. They keep returning
+optimistic_lock(:lock_version), stale_error_field: :lock_version,
+force: true)` for the version bump (the server is loaded once at the
+top via `get_stream_server!/1`), then `Multi.merge` appending the
+event built from the bumped struct. `force: true` is required because
+Ecto ≥ 3.5 no-ops updates whose changeset has no changes — the
+`optimistic_lock` increment is applied in `prepare_changes`, which
+never runs unless the update is forced. They keep returning
 `{:ok, get_stream_server!(id)}` — the reload stays *after*
 `Repo.transaction` so the preload sees committed rows without adding a
 `Multi.run` step.

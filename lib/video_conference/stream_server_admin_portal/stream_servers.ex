@@ -8,13 +8,19 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   """
 
   import Ecto.Query, warn: false
+  alias Ecto.Multi
+  alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo
 
   alias VideoConference.StreamServerAdminPortal.Applications.Application
 
   alias VideoConference.StreamServerAdminPortal.StreamServers.{
     ApplicationStreamServer,
-    StreamServer
+    StreamServer,
+    StreamServerWasAdded,
+    StreamServerWasAssignedToApplication,
+    StreamServerWasRemoved,
+    StreamServerWasUnassignedFromApplication
   }
 
   @doc """
@@ -67,11 +73,18 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
 
   @doc """
   Creates a stream server.
+
+  Commits the record and a `StreamServerWasAdded` event on the
+  server's stream in the same transaction.
   """
   def create_stream_server(attrs \\ %{}) do
-    %StreamServer{}
-    |> StreamServer.changeset(attrs)
-    |> Repo.insert()
+    Multi.new()
+    |> Multi.insert(:stream_server, StreamServer.changeset(%StreamServer{}, attrs))
+    |> Multi.merge(fn %{stream_server: stream_server} ->
+      EventStore.append([StreamServerWasAdded.new(stream_server)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
@@ -119,14 +132,22 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   end
 
   @doc """
-  Deletes a stream server. Its application assignments are removed by the
+  Removes a stream server. Its application assignments are removed by the
   database's `on_delete: :delete_all` foreign key.
+
+  Commits the delete and a `StreamServerWasRemoved` event on the
+  server's stream in the same transaction.
   """
-  def delete_stream_server(%StreamServer{} = stream_server) do
-    stream_server
-    |> Ecto.Changeset.change()
-    |> Ecto.Changeset.optimistic_lock(:lock_version)
-    |> Repo.delete(stale_error_field: :lock_version)
+  def remove_stream_server(%StreamServer{} = stream_server) do
+    Multi.new()
+    |> Multi.delete(:stream_server, lock_bump_changeset(stream_server),
+      stale_error_field: :lock_version
+    )
+    |> Multi.merge(fn _changes ->
+      EventStore.append([StreamServerWasRemoved.new(stream_server)])
+    end)
+    |> Repo.transaction()
+    |> transaction_result()
   end
 
   @doc """
@@ -140,15 +161,36 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   Assigns one application to a stream server, returning the server
   reloaded with its applications preloaded. Assigning an already
   assigned application is a no-op.
+
+  Commits the join row, a `lock_version` bump on the server, and a
+  `StreamServerWasAssignedToApplication` event on the server's stream
+  in the same transaction.
   """
   def assign_application(stream_server_id, application_id) do
-    Repo.insert(
-      %ApplicationStreamServer{
-        stream_server_id: stream_server_id,
-        application_id: application_id
-      },
-      on_conflict: :nothing
-    )
+    stream_server = get_stream_server!(stream_server_id)
+
+    {:ok, _changes} =
+      Multi.new()
+      |> Multi.insert(
+        :assignment,
+        %ApplicationStreamServer{
+          stream_server_id: stream_server_id,
+          application_id: application_id
+        },
+        on_conflict: :nothing
+      )
+      |> Multi.update(
+        :stream_server,
+        lock_bump_changeset(stream_server),
+        stale_error_field: :lock_version,
+        force: true
+      )
+      |> Multi.merge(fn %{stream_server: stream_server} ->
+        EventStore.append([
+          StreamServerWasAssignedToApplication.new(stream_server, application_id)
+        ])
+      end)
+      |> Repo.transaction()
 
     {:ok, get_stream_server!(stream_server_id)}
   end
@@ -157,13 +199,50 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   Removes one application's assignment from a stream server, returning
   the server reloaded with its applications preloaded. Unassigning an
   application that is not assigned is a no-op.
+
+  Commits the join row removal, a `lock_version` bump on the server,
+  and a `StreamServerWasUnassignedFromApplication` event on the
+  server's stream in the same transaction.
   """
   def unassign_application(stream_server_id, application_id) do
-    Repo.delete_all(
-      from j in ApplicationStreamServer,
-        where: j.stream_server_id == ^stream_server_id and j.application_id == ^application_id
-    )
+    stream_server = get_stream_server!(stream_server_id)
+
+    {:ok, _changes} =
+      Multi.new()
+      |> Multi.delete_all(
+        :assignment,
+        from(j in ApplicationStreamServer,
+          where:
+            j.stream_server_id == ^stream_server_id and
+              j.application_id == ^application_id
+        )
+      )
+      |> Multi.update(
+        :stream_server,
+        lock_bump_changeset(stream_server),
+        stale_error_field: :lock_version,
+        force: true
+      )
+      |> Multi.merge(fn %{stream_server: stream_server} ->
+        EventStore.append([
+          StreamServerWasUnassignedFromApplication.new(stream_server, application_id)
+        ])
+      end)
+      |> Repo.transaction()
 
     {:ok, get_stream_server!(stream_server_id)}
   end
+
+  defp lock_bump_changeset(%StreamServer{} = stream_server) do
+    stream_server
+    |> Ecto.Changeset.change()
+    |> Ecto.Changeset.optimistic_lock(:lock_version)
+  end
+
+  defp transaction_result({:ok, %{stream_server: stream_server}}), do: {:ok, stream_server}
+
+  defp transaction_result({:error, _operation, %Ecto.Changeset{} = changeset, _changes}),
+    do: {:error, changeset}
+
+  defp transaction_result({:error, _operation, error, _changes}), do: {:error, error}
 end
