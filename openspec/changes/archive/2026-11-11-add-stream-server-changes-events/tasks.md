@@ -18,8 +18,8 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Exercise the portal stream servers page in the dev server (`dotenv -e .env mix phx.server`): create a server, assign and unassign an application, remove a server, then confirm the matching rows exist via `EventStore.get_events/2` in `iex`
-- [ ] 3.2 Run `dotenv -e .env.test mix precommit` and fix any warnings or failures
+- [x] 3.1 Exercise the portal stream servers page in the dev server (`dotenv -e .env mix phx.server`): create a server, assign and unassign an application, remove a server, then confirm the matching rows exist via `EventStore.get_events/2` in `iex`
+- [x] 3.2 Run `dotenv -e .env.test mix precommit` and fix any warnings or failures
 
 ## Workflow follow-up
 
