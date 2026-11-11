@@ -9,7 +9,6 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.Application do
   import Ecto.Changeset
 
   alias VideoConference.StreamServerAdminPortal.Applications.{ApiKey, StreamServerPublicKey}
-  alias VideoConference.StreamServerAdminPortal.Repo
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -28,27 +27,22 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.Application do
   @doc """
   An application changeset.
 
-  Requires a `name`, which must be unique across applications.
-  `description` and `enabled` are optional.
+  Requires a `name`. `description` and `enabled` are optional.
   """
   def changeset(%__MODULE__{} = application, attrs) do
     application
     |> cast(attrs, [:name, :description, :enabled])
     |> validate_required([:name])
-    |> unsafe_validate_unique(:name, Repo)
-    |> unique_constraint(:name)
   end
 
   @doc """
-  A changeset for renaming an application. Keeps the required and
-  unique-name validations.
+  A changeset for renaming an application. Keeps the required-name
+  validation.
   """
   def name_changeset(%__MODULE__{} = application, attrs) do
     application
     |> cast(attrs, [:name])
     |> validate_required([:name])
-    |> unsafe_validate_unique(:name, Repo)
-    |> unique_constraint(:name)
     |> optimistic_lock(:lock_version)
   end
 

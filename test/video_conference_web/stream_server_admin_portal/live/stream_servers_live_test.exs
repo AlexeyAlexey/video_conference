@@ -70,7 +70,8 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLiveTest do
     assert has_element?(lv, "#edit-country-#{server.id}")
     assert has_element?(lv, "#edit-cert-hash-#{server.id}")
     assert has_element?(lv, "#assign-stream-server-#{server.id}")
-    assert has_element?(lv, "#delete-stream-server-#{server.id}")
+    refute has_element?(lv, "#delete-stream-server-#{server.id}")
+    refute has_element?(lv, "button", "Remove")
   end
 
   test "the description column truncates long descriptions with an expandable control",
@@ -229,16 +230,19 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLiveTest do
     assert has_element?(lv, "#stream-server-form p.text-error", "can't be blank")
   end
 
-  test "shows an inline error on a duplicate name", %{conn: conn} do
+  test "adds a stream server with a name another server already has", %{conn: conn} do
     _server = stream_server_fixture(%{"name" => "taken"})
     {:ok, lv, _html} = live(conn, "/stream-server-admin/stream-servers/new")
 
-    html =
-      lv
-      |> form("#stream-server-form", stream_server: %{"name" => "taken"})
-      |> render_submit()
+    lv
+    |> form("#stream-server-form",
+      stream_server: %{"name" => "taken", "host" => "203.0.113.20"}
+    )
+    |> render_submit()
 
-    assert html =~ "has already been taken"
+    assert_patch(lv, "/stream-server-admin/stream-servers")
+
+    assert Enum.count(StreamServers.list_stream_servers(), &(&1.name == "taken")) == 2
   end
 
   test "shows an inline error on a duplicate host", %{conn: conn} do
@@ -275,7 +279,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLiveTest do
     assert has_element?(lv, "#stream-server-row-#{server.id}", "edge-renamed")
   end
 
-  test "rename modal shows an inline error on a duplicate name", %{conn: conn} do
+  test "renames a server to a name another server already has", %{conn: conn} do
     _other = stream_server_fixture(%{"name" => "taken"})
     server = stream_server_fixture(%{"name" => "edge-1"})
 
@@ -287,8 +291,8 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLiveTest do
     |> form("#rename-server-form", rename_server: %{"name" => "taken"})
     |> render_submit()
 
-    assert has_element?(lv, "#rename-server-modal")
-    assert has_element?(lv, "#rename-server-form p.text-error", "has already been taken")
+    refute has_element?(lv, "#rename-server-modal")
+    assert StreamServers.get_stream_server!(server.id).name == "taken"
   end
 
   test "edits a server's description through the description pencil modal", %{conn: conn} do
@@ -440,24 +444,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLiveTest do
     conn = get(conn, "/stream-server-admin/stream-servers/#{server.id}/edit")
 
     assert conn.status == 404
-  end
-
-  test "removes a stream server and its assignments", %{conn: conn} do
-    application = application_fixture()
-    server = stream_server_fixture(%{"name" => "to remove"})
-    {:ok, _} = StreamServers.assign_application(server.id, application.id)
-
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/stream-servers")
-
-    lv |> element("#delete-stream-server-#{server.id}") |> render_click()
-
-    refute has_element?(lv, "#stream-server-row-#{server.id}")
-
-    assert_raise Ecto.NoResultsError, fn ->
-      StreamServers.get_stream_server!(server.id)
-    end
-
-    assert StreamServers.list_stream_servers(application_id: application.id) == []
   end
 
   test "assign view toggles application checkboxes immediately", %{conn: conn} do

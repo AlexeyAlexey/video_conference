@@ -10,7 +10,6 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     ApplicationWasAdded,
     ApplicationWasDisabled,
     ApplicationWasEnabled,
-    ApplicationWasRemoved,
     ApplicationWasRenamed,
     StreamServerPublicKey,
     StreamServerPublicKeyWasAdded,
@@ -56,12 +55,14 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert %{name: ["can't be blank"]} = errors_on(changeset)
     end
 
-    test "returns an error changeset for a duplicate name" do
+    test "allows two applications to share a name" do
       application = application_fixture()
 
-      {:error, changeset} = Applications.create_application(%{"name" => application.name})
+      {:ok, %Application{} = other} =
+        Applications.create_application(%{"name" => application.name})
 
-      assert %{name: ["has already been taken"]} = errors_on(changeset)
+      assert other.name == application.name
+      assert other.id != application.id
     end
 
     test "commits the application and an ApplicationWasAdded event together" do
@@ -99,13 +100,13 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert Applications.get_application!(application.id).name == "renamed"
     end
 
-    test "returns an error changeset for a duplicate name" do
+    test "allows renaming to a name another application already has" do
       application = application_fixture()
       other = application_fixture()
 
-      {:error, changeset} = Applications.rename_application(other.id, application.name)
+      {:ok, updated} = Applications.rename_application(other.id, application.name)
 
-      assert %{name: ["has already been taken"]} = errors_on(changeset)
+      assert updated.name == application.name
     end
 
     test "returns an error changeset without a name" do
@@ -136,9 +137,8 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
     test "a failing rename stores no event" do
       application = application_fixture()
-      other = application_fixture()
 
-      {:error, _changeset} = Applications.rename_application(other.id, application.name)
+      {:error, _changeset} = Applications.rename_application(application.id, "")
 
       assert EventStore.get_events([inspect(ApplicationWasRenamed)], 0) == []
     end
@@ -255,50 +255,6 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
       assert %{lock_version: ["is stale"]} = errors_on(changeset)
       assert Applications.get_application!(application.id).name == "renamed"
-    end
-
-    test "a stale delete returns an error changeset instead of raising" do
-      application = application_fixture()
-      stale = Applications.get_application!(application.id)
-
-      {:ok, _} = Applications.rename_application(application.id, "renamed")
-
-      assert {:error, changeset} = Applications.remove_application(stale)
-      assert %{lock_version: ["is stale"]} = errors_on(changeset)
-      assert Applications.get_application!(application.id)
-    end
-  end
-
-  describe "remove_application/1" do
-    test "deletes the application and cascades to its API keys" do
-      application = application_fixture()
-      key = api_key_fixture(application)
-
-      {:ok, _} = Applications.remove_application(application)
-
-      assert_raise Ecto.NoResultsError, fn ->
-        Applications.get_application!(application.id)
-      end
-
-      assert_raise Ecto.NoResultsError, fn -> Applications.get_api_key!(key.id) end
-      refute PortalRepo.exists?(from(k in ApiKey, where: k.application_id == ^application.id))
-    end
-
-    test "stores an ApplicationWasRemoved event with the matched lock_version" do
-      application = application_fixture()
-      {:ok, renamed} = Applications.rename_application(application.id, "renamed")
-
-      {:ok, _} = Applications.remove_application(renamed)
-
-      assert [stored] = EventStore.get_events([inspect(ApplicationWasRemoved)], 0)
-      assert stored.stream_id == application.id
-      assert stored.version == 3
-
-      assert stored.payload == %ApplicationWasRemoved{
-               stream_id: application.id,
-               id: application.id,
-               lock_version: 2
-             }
     end
   end
 
@@ -627,22 +583,6 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
                stream_id: application.id,
                id: application.id,
                lock_version: 5
-             }
-    end
-
-    test "ApplicationWasRemoved maps all fields from the application" do
-      application = %Application{
-        id: Ecto.UUID.generate(),
-        lock_version: 6,
-        name: "name",
-        description: "desc",
-        enabled: true
-      }
-
-      assert ApplicationWasRemoved.new(application) == %ApplicationWasRemoved{
-               stream_id: application.id,
-               id: application.id,
-               lock_version: 6
              }
     end
   end
@@ -1060,23 +1000,6 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
                & &1.id
              ) ==
                Enum.map(Applications.list_applications_with_stream_server_public_keys(), & &1.id)
-    end
-  end
-
-  describe "remove_application/1 with stream server public keys" do
-    test "deletes the application and cascades to its stream server public keys" do
-      application = application_fixture()
-      key = stream_server_public_key_fixture(application)
-
-      {:ok, _} = Applications.remove_application(application)
-
-      assert_raise Ecto.NoResultsError, fn ->
-        Applications.get_stream_server_public_key!(key.id)
-      end
-
-      refute PortalRepo.exists?(
-               from(k in StreamServerPublicKey, where: k.application_id == ^application.id)
-             )
     end
   end
 end

@@ -3,7 +3,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
 
   import VideoConference.StreamServerAdminPortalFixtures
 
-  alias VideoConference.StreamServerAdminPortal.Applications
   alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo
   alias VideoConference.StreamServerAdminPortal.StreamServers
@@ -12,7 +11,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
     StreamServer,
     StreamServerWasAdded,
     StreamServerWasAssignedToApplication,
-    StreamServerWasRemoved,
     StreamServerWasUnassignedFromApplication
   }
 
@@ -102,13 +100,14 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
       assert %{name: ["can't be blank"]} = errors_on(changeset)
     end
 
-    test "rejects a duplicate name" do
-      stream_server = stream_server_fixture(%{"name" => "taken"})
+    test "allows two stream servers to share a name" do
+      stream_server = stream_server_fixture(%{"name" => "shared"})
 
-      {:error, changeset} = StreamServers.create_stream_server(%{"name" => "taken"})
+      {:ok, %StreamServer{} = other} =
+        StreamServers.create_stream_server(%{"name" => "shared"})
 
-      assert %{name: ["has already been taken"]} = errors_on(changeset)
-      assert stream_server.id
+      assert other.name == stream_server.name
+      assert other.id != stream_server.id
     end
 
     test "rejects a duplicate host" do
@@ -157,10 +156,11 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
     end
 
     test "a failing create stores no event" do
-      _existing = stream_server_fixture(%{"name" => "taken"})
+      _existing = stream_server_fixture(%{"host" => "10.0.0.1:443"})
       before = EventStore.get_events([inspect(StreamServerWasAdded)], 0)
 
-      {:error, _changeset} = StreamServers.create_stream_server(%{"name" => "taken"})
+      {:error, _changeset} =
+        StreamServers.create_stream_server(%{"name" => "n", "host" => "10.0.0.1:443"})
 
       assert EventStore.get_events([inspect(StreamServerWasAdded)], 0) == before
     end
@@ -176,14 +176,14 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
       assert StreamServers.get_stream_server!(stream_server.id).name == "new"
     end
 
-    test "rejects a duplicate name" do
+    test "allows renaming to a name another stream server already has" do
       _other = stream_server_fixture(%{"name" => "taken"})
       stream_server = stream_server_fixture(%{"name" => "old"})
 
-      {:error, changeset} = StreamServers.rename_stream_server(stream_server.id, "taken")
+      {:ok, updated} = StreamServers.rename_stream_server(stream_server.id, "taken")
 
-      assert %{name: ["has already been taken"]} = errors_on(changeset)
-      assert StreamServers.get_stream_server!(stream_server.id).name == "old"
+      assert updated.name == "taken"
+      assert StreamServers.get_stream_server!(stream_server.id).name == "taken"
     end
 
     test "requires a name" do
@@ -319,52 +319,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
 
       assert %{lock_version: ["is stale"]} = errors_on(changeset)
       assert StreamServers.get_stream_server!(stream_server.id).name == "renamed"
-    end
-
-    test "a stale delete returns an error changeset instead of raising and stores no event" do
-      stream_server = stream_server_fixture()
-      stale = StreamServers.get_stream_server!(stream_server.id)
-
-      {:ok, _} = StreamServers.rename_stream_server(stream_server.id, "renamed")
-
-      assert {:error, changeset} = StreamServers.remove_stream_server(stale)
-      assert %{lock_version: ["is stale"]} = errors_on(changeset)
-      assert StreamServers.get_stream_server!(stream_server.id)
-      assert EventStore.get_events([inspect(StreamServerWasRemoved)], 0) == []
-    end
-  end
-
-  describe "remove_stream_server/1" do
-    test "deletes the server and its application assignments" do
-      application = application_fixture()
-      stream_server = stream_server_fixture()
-      {:ok, assigned} = StreamServers.assign_application(stream_server.id, application.id)
-
-      {:ok, _} = StreamServers.remove_stream_server(assigned)
-
-      assert_raise Ecto.NoResultsError, fn ->
-        StreamServers.get_stream_server!(stream_server.id)
-      end
-
-      assert Applications.get_application!(application.id)
-      assert StreamServers.list_stream_servers(application_id: application.id) == []
-    end
-
-    test "stores a StreamServerWasRemoved event with the matched lock_version" do
-      stream_server = stream_server_fixture()
-      {:ok, renamed} = StreamServers.rename_stream_server(stream_server.id, "renamed")
-
-      {:ok, _} = StreamServers.remove_stream_server(renamed)
-
-      assert [stored] = EventStore.get_events([inspect(StreamServerWasRemoved)], 0)
-      assert stored.stream_id == stream_server.id
-      assert stored.version == 2
-
-      assert stored.payload == %StreamServerWasRemoved{
-               stream_id: stream_server.id,
-               id: stream_server.id,
-               lock_version: 2
-             }
     end
   end
 
@@ -503,17 +457,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
                lock_version: 2
              }
     end
-
-    test "deleting an application removes its assignments" do
-      application = application_fixture()
-      stream_server = stream_server_fixture()
-      {:ok, _} = StreamServers.assign_application(stream_server.id, application.id)
-
-      {:ok, _} = Applications.remove_application(application)
-
-      loaded = StreamServers.get_stream_server!(stream_server.id)
-      assert loaded.applications == []
-    end
   end
 
   describe "non-evented mutations" do
@@ -527,7 +470,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
 
       event_types = [
         inspect(StreamServerWasAdded),
-        inspect(StreamServerWasRemoved),
         inspect(StreamServerWasAssignedToApplication),
         inspect(StreamServerWasUnassignedFromApplication)
       ]
@@ -565,21 +507,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
                settings: %{"region" => "eu"},
                cert_hash: "abc123",
                lock_version: 1
-             }
-    end
-
-    test "StreamServerWasRemoved maps all fields from the stream server" do
-      stream_server = %StreamServer{
-        id: Ecto.UUID.generate(),
-        lock_version: 3,
-        name: "edge-1",
-        host: "10.0.0.1:443"
-      }
-
-      assert StreamServerWasRemoved.new(stream_server) == %StreamServerWasRemoved{
-               stream_id: stream_server.id,
-               id: stream_server.id,
-               lock_version: 3
              }
     end
 

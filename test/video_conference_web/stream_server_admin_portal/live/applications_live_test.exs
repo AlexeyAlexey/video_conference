@@ -30,7 +30,23 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
     refute has_element?(lv, "#enabled-application-#{disabled.id}[checked]")
     assert has_element?(lv, "#rename-application-#{application.id}")
     assert has_element?(lv, "#edit-description-#{application.id}")
-    assert has_element?(lv, "#delete-application-#{application.id}")
+    refute has_element?(lv, "#delete-application-#{application.id}")
+    refute has_element?(lv, "button", "Remove")
+  end
+
+  test "each row exposes the application's UUID with a copy control", %{conn: conn} do
+    application = application_fixture(%{"name" => "billing app"})
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications")
+
+    assert has_element?(
+             lv,
+             "#app-id-value-#{application.id}.hidden",
+             application.id
+           )
+
+    assert has_element?(lv, "#copy-app-id-#{application.id}[onclick*=clipboard]")
+    assert has_element?(lv, "#application-row-#{application.id}", application.id)
   end
 
   test "sidebar links to applications and api keys", %{conn: conn} do
@@ -64,18 +80,17 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
     assert application.enabled == true
   end
 
-  test "shows an inline error on a duplicate name", %{conn: conn} do
+  test "adds an application with a name another application already has", %{conn: conn} do
     application = application_fixture(%{"name" => "taken"})
     {:ok, lv, _html} = live(conn, "/stream-server-admin/applications/new")
 
-    html =
-      lv
-      |> form("#application-form", application: %{"name" => "taken"})
-      |> render_submit()
+    lv
+    |> form("#application-form", application: %{"name" => "taken"})
+    |> render_submit()
 
-    assert html =~ "has already been taken"
+    assert_patch(lv, "/stream-server-admin/applications")
 
-    refute Enum.any?(
+    assert Enum.any?(
              Applications.list_applications(),
              &(&1.name == application.name and &1.id != application.id)
            )
@@ -113,7 +128,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
     assert has_element?(lv, "#application-row-#{application.id}", "renamed")
   end
 
-  test "rejects a duplicate name inline in the rename modal", %{conn: conn} do
+  test "renames an application to a name another application already has", %{conn: conn} do
     application = application_fixture(%{"name" => "taken"})
     other = application_fixture(%{"name" => "other"})
 
@@ -121,14 +136,12 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
 
     lv |> element("#rename-application-#{other.id}") |> render_click()
 
-    html =
-      lv
-      |> form("#rename-application-form", rename_application: %{"name" => "taken"})
-      |> render_submit()
+    lv
+    |> form("#rename-application-form", rename_application: %{"name" => "taken"})
+    |> render_submit()
 
-    assert html =~ "has already been taken"
-    assert has_element?(lv, "#rename-application-modal")
-    assert Applications.get_application!(other.id).name == "other"
+    refute has_element?(lv, "#rename-application-modal")
+    assert Applications.get_application!(other.id).name == "taken"
     assert Applications.get_application!(application.id).name == "taken"
   end
 
@@ -206,22 +219,5 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLiveTest do
 
     conn = get(conn, "/stream-server-admin/applications/#{application.id}/edit")
     assert conn.status == 404
-  end
-
-  test "removes an application and cascades to its API keys", %{conn: conn} do
-    application = application_fixture(%{"name" => "to remove"})
-    api_key = api_key_fixture(application)
-
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/applications")
-
-    lv |> element("#delete-application-#{application.id}") |> render_click()
-
-    refute has_element?(lv, "#application-row-#{application.id}")
-
-    assert_raise Ecto.NoResultsError, fn ->
-      Applications.get_application!(application.id)
-    end
-
-    assert_raise Ecto.NoResultsError, fn -> Applications.get_api_key!(api_key.id) end
   end
 end

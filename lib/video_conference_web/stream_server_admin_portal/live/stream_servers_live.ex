@@ -83,21 +83,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLive do
     end
   end
 
-  def handle_event("delete", %{"id" => id}, socket) do
-    stream_server = StreamServers.get_stream_server!(id)
-
-    case StreamServers.remove_stream_server(stream_server) do
-      {:ok, _stream_server} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Stream server removed")
-         |> assign_stream_servers()}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "The stream server cannot be removed")}
-    end
-  end
-
   def handle_event(
         "toggle-assignment",
         %{"application-id" => application_id, "assigned" => assigned},
@@ -627,16 +612,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLive do
                   >
                     Assign
                   </.link>
-                  <button
-                    id={"delete-stream-server-#{server.id}"}
-                    type="button"
-                    phx-click="delete"
-                    phx-value-id={server.id}
-                    data-confirm={"Remove #{server.name}?"}
-                    class="btn btn-ghost btn-xs text-error"
-                  >
-                    Remove
-                  </button>
                 </td>
               </tr>
             </tbody>

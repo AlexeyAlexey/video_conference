@@ -37,7 +37,7 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
   @doc """
   A stream server changeset.
 
-  Requires a unique `name` and a unique `host` when one is given, and
+  Requires a `name` and a unique `host` when one is given, and
   restricts `country` to the supported ISO alpha-2 codes in
   `Countries`. `description`, `settings`, and `cert_hash` are optional.
   """
@@ -46,8 +46,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
     |> cast(attrs, [:name, :description, :host, :country, :settings, :cert_hash])
     |> validate_required([:name])
     |> validate_inclusion(:country, Countries.codes())
-    |> unsafe_validate_unique(:name, Repo)
-    |> unique_constraint(:name)
     |> unsafe_validate_unique(:host, Repo)
     |> unique_constraint(:host)
   end
@@ -60,8 +58,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
     stream_server
     |> cast(attrs, [:name])
     |> validate_required([:name])
-    |> unsafe_validate_unique(:name, Repo)
-    |> unique_constraint(:name)
     |> optimistic_lock(:lock_version)
   end
 

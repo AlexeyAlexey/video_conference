@@ -19,7 +19,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
     StreamServer,
     StreamServerWasAdded,
     StreamServerWasAssignedToApplication,
-    StreamServerWasRemoved,
     StreamServerWasUnassignedFromApplication
   }
 
@@ -129,25 +128,6 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
     |> get_stream_server!()
     |> StreamServer.cert_hash_changeset(%{"cert_hash" => cert_hash})
     |> Repo.update(stale_error_field: :lock_version)
-  end
-
-  @doc """
-  Removes a stream server. Its application assignments are removed by the
-  database's `on_delete: :delete_all` foreign key.
-
-  Commits the delete and a `StreamServerWasRemoved` event on the
-  server's stream in the same transaction.
-  """
-  def remove_stream_server(%StreamServer{} = stream_server) do
-    Multi.new()
-    |> Multi.delete(:stream_server, lock_bump_changeset(stream_server),
-      stale_error_field: :lock_version
-    )
-    |> Multi.merge(fn _changes ->
-      EventStore.append([StreamServerWasRemoved.new(stream_server)])
-    end)
-    |> Repo.transaction()
-    |> transaction_result()
   end
 
   @doc """

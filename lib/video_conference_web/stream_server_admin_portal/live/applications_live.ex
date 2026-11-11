@@ -48,21 +48,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLive do
     save_application(socket, socket.assigns.live_action, application_params)
   end
 
-  def handle_event("delete", %{"id" => id}, socket) do
-    application = Applications.get_application!(id)
-
-    case Applications.remove_application(application) do
-      {:ok, _application} ->
-        {:noreply,
-         socket
-         |> put_flash(:info, "Application removed")
-         |> assign_applications()}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "The application cannot be removed")}
-    end
-  end
-
   def handle_event("toggle-enabled", %{"id" => id, "enabled" => enabled}, socket) do
     result =
       if enabled == "true",
@@ -278,14 +263,29 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLive do
           <table id="applications-table" class="table table-sm sm:table-md">
             <thead>
               <tr>
+                <th>App ID</th>
                 <th>Name</th>
                 <th>Description</th>
                 <th>Enabled</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
               <tr :for={application <- @applications} id={"application-row-#{application.id}"}>
+                <td id={"app-id-#{application.id}"} class="whitespace-nowrap">
+                  <span class="font-mono text-xs">{application.id}</span>
+                  <span id={"app-id-value-#{application.id}"} class="hidden">
+                    {application.id}
+                  </span>
+                  <button
+                    type="button"
+                    id={"copy-app-id-#{application.id}"}
+                    onclick={"navigator.clipboard.writeText(document.getElementById('app-id-value-#{application.id}').textContent.trim())"}
+                    class="btn btn-ghost btn-xs"
+                    title="Copy App ID"
+                  >
+                    <.icon name="hero-document-duplicate" class="size-4" />
+                  </button>
+                </td>
                 <td class="whitespace-nowrap">
                   {application.name}
                   <button
@@ -360,18 +360,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApplicationsLive do
                     class="checkbox checkbox-sm"
                     title="Toggle enabled"
                   />
-                </td>
-                <td class="text-right whitespace-nowrap">
-                  <button
-                    id={"delete-application-#{application.id}"}
-                    type="button"
-                    phx-click="delete"
-                    phx-value-id={application.id}
-                    data-confirm={"Remove #{application.name} and all of its API keys?"}
-                    class="btn btn-ghost btn-xs text-error"
-                  >
-                    Remove
-                  </button>
                 </td>
               </tr>
             </tbody>

@@ -21,7 +21,6 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     ApplicationWasAdded,
     ApplicationWasDisabled,
     ApplicationWasEnabled,
-    ApplicationWasRemoved,
     ApplicationWasRenamed,
     StreamServerPublicKey,
     StreamServerPublicKeyWasAdded,
@@ -101,8 +100,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Renames an application. The name must remain unique across
-  applications.
+  Renames an application.
   """
   def rename_application(id, name) do
     application = get_application!(id)
@@ -172,28 +170,6 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
     )
     |> Multi.merge(fn %{application: application} ->
       EventStore.append([ApplicationWasDisabled.new(application)])
-    end)
-    |> Repo.transaction()
-    |> transaction_result()
-  end
-
-  @doc """
-  Removes an application. Its API keys and stream server public keys are
-  removed by the database's `on_delete: :delete_all` foreign keys.
-
-  Commits the delete and an `ApplicationWasRemoved` event on the
-  application's stream in the same transaction.
-  """
-  def remove_application(%Application{} = application) do
-    changeset =
-      application
-      |> Ecto.Changeset.change()
-      |> Ecto.Changeset.optimistic_lock(:lock_version)
-
-    Multi.new()
-    |> Multi.delete(:application, changeset, stale_error_field: :lock_version)
-    |> Multi.merge(fn _changes ->
-      EventStore.append([ApplicationWasRemoved.new(application)])
     end)
     |> Repo.transaction()
     |> transaction_result()
