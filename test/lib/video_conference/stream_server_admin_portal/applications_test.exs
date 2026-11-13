@@ -1,6 +1,7 @@
 defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
   use VideoConference.DataCase, async: false
 
+  alias VideoConference.StreamServerAdminPortal.ApiKeySecret
   alias VideoConference.StreamServerAdminPortal.Applications
 
   alias VideoConference.StreamServerAdminPortal.Applications.{
@@ -272,8 +273,8 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert {:ok, _} = Ecto.UUID.cast(api_key.id)
       assert api_key.application_id == application.id
       assert api_key.enabled == true
-      assert api_key.plaintext_key =~ ~r/^ssak_[A-Za-z0-9_-]{43}$/
-      assert Bcrypt.verify_pass(api_key.plaintext_key, api_key.hashed_api_key)
+      assert api_key.plaintext_key =~ ~r/^aak_[0-9a-f-]{36}_[A-Za-z0-9_-]{43}$/
+      assert ApiKeySecret.verify(api_key.plaintext_key, api_key.hashed_api_key)
     end
 
     test "stores the secret only as a hash" do

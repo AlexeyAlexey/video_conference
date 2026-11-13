@@ -11,6 +11,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
 
   import Ecto.Query, warn: false
   alias Ecto.Multi
+  alias VideoConference.StreamServerAdminPortal.ApiKeySecret
   alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo
 
@@ -219,11 +220,11 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   is persisted.
   """
   def create_api_key(attrs \\ %{}) do
-    secret = generate_api_key_secret()
+    secret = generate_api_key_secret(Ecto.UUID.generate())
 
     %ApiKey{}
     |> ApiKey.changeset(attrs)
-    |> Ecto.Changeset.put_change(:hashed_api_key, Bcrypt.hash_pwd_salt(secret))
+    |> Ecto.Changeset.put_change(:hashed_api_key, ApiKeySecret.hash(secret))
     |> Repo.insert()
     |> case do
       {:ok, api_key} -> {:ok, %{api_key | plaintext_key: secret}}
@@ -256,11 +257,16 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Generates a random API key secret prefixed with `ssak_` so leaked keys
-  are recognizable in logs and config scans.
+  Generates a random API key secret in the form `aak_<prefix_id>_<random>`
+  where `aak` ("application api key") marks the scope and `prefix_id`
+  is an independently generated id, so leaked keys are recognizable in
+  logs and config scans.
+
+  Delegates to `ApiKeySecret.generate/2`, the shared implementation both
+  API key scopes use.
   """
-  def generate_api_key_secret do
-    "ssak_" <> Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
+  def generate_api_key_secret(prefix_id) do
+    ApiKeySecret.generate("aak", prefix_id)
   end
 
   ## Stream server public keys

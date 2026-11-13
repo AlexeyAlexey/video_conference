@@ -4,6 +4,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLiveTest do
   import Phoenix.LiveViewTest
   import VideoConference.StreamServerAdminPortalFixtures
 
+  alias VideoConference.StreamServerAdminPortal.ApiKeySecret
   alias VideoConference.StreamServerAdminPortal.Applications
 
   setup %{conn: conn} do
@@ -70,8 +71,8 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLiveTest do
              ~s|#copy-new-api-key-secret[onclick*="navigator.clipboard.writeText"]|
            )
 
-    [secret] = Regex.run(~r/ssak_[A-Za-z0-9_-]{20,}/, html)
-    assert Bcrypt.verify_pass(secret, api_key.hashed_api_key)
+    [secret] = Regex.run(~r/aak_[A-Za-z0-9_-]{20,}/, html)
+    assert ApiKeySecret.verify(secret, api_key.hashed_api_key)
 
     # Dismissing removes it and it is not rendered again
     lv |> element("#dismiss-new-api-key-secret") |> render_click()
@@ -94,7 +95,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLiveTest do
     |> render_submit()
 
     assert_patch(lv, "/stream-server-admin/api-keys")
-    [secret] = Regex.run(~r/ssak_[A-Za-z0-9_-]{20,}/, render(lv))
+    [secret] = Regex.run(~r/aak_[A-Za-z0-9_-]{20,}/, render(lv))
 
     api_key = Enum.find(Applications.list_api_keys(application), &(&1.name == "new key"))
 

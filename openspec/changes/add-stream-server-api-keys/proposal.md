@@ -12,13 +12,15 @@ The portal needs a way to issue and manage per-server API keys.
 
 - New `stream_server_api_keys` table and `StreamServers.ApiKey` schema:
   UUID primary key, required `stream_server_id` reference, non-unique
-  required `name`, optional `description`, `enabled` flag, bcrypt-hashed
+  required `name`, unique `prefix` (the secret's lookup prefix), optional
+  `description`, `enabled` flag, bcrypt-hashed
   secret, `lock_version` for optimistic concurrency, timestamps. Names are
   NOT unique within a server (unlike application API keys); only the hashed
   secret is unique per server.
 - New shared `StreamServerAdminPortal.ApiKeySecret` module that owns secret
-  generation (`ssak_`-prefixed) and hashing; `Applications.create_api_key/1`
-  is refactored to use it so both scopes share one implementation.
+  generation (`env_prefix <> "_" <> prefix_id <> "_" <> <random>`) and hashing;
+  `Applications.create_api_key/1` is refactored to use it so both scopes
+  share one implementation.
 - `StreamServers` context gains API key functions: list a server's keys,
   get one, create (returns the plaintext secret once), rename, edit
   description, enable, disable, and a changeset builder. Updates are
@@ -37,7 +39,8 @@ The portal needs a way to issue and manage per-server API keys.
     as "name (host)" taken from the current filter.
   - a one-time secret banner after creation (copy + dismiss), same as the
     application API keys page.
-  - a per-field-edited table: pencil opens a rename modal, pencil opens a
+  - a per-field-edited table showing each key's `prefix` in an API KEY
+    column with a copy button: pencil opens a rename modal, pencil opens a
     description modal, and the enabled checkbox toggles immediately.
 - The portal sidebar's "Stream servers" item gains an "API keys"
   sub-item, mirroring the Applications group.

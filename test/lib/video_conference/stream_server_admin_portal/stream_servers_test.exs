@@ -3,11 +3,13 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
 
   import VideoConference.StreamServerAdminPortalFixtures
 
+  alias VideoConference.StreamServerAdminPortal.ApiKeySecret
   alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo
   alias VideoConference.StreamServerAdminPortal.StreamServers
 
   alias VideoConference.StreamServerAdminPortal.StreamServers.{
+    ApiKey,
     StreamServer,
     StreamServerWasAdded,
     StreamServerWasAssignedToApplication,
@@ -53,6 +55,24 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
       servers = StreamServers.list_stream_servers(application_id: "unassigned")
 
       assert Enum.map(servers, & &1.id) == [unassigned.id]
+    end
+
+    test "filters by name or host search text" do
+      zucchini = stream_server_fixture(%{"name" => "zucchini", "host" => "z.example.test"})
+      by_host = stream_server_fixture(%{"name" => "other", "host" => "zucch.example.test"})
+      _apple = stream_server_fixture(%{"name" => "apple", "host" => "a.example.test"})
+
+      by_name = StreamServers.list_stream_servers(search: "zucchin")
+      assert Enum.map(by_name, & &1.id) == [zucchini.id]
+
+      by_host_result = StreamServers.list_stream_servers(search: "zucch.example")
+      assert Enum.map(by_host_result, & &1.id) == [by_host.id]
+
+      assert StreamServers.list_stream_servers(search: "zucch") |> Enum.map(& &1.id) ==
+               [by_host.id, zucchini.id]
+
+      all = StreamServers.list_stream_servers(search: "")
+      assert Enum.map(all, & &1.id) == Enum.map(StreamServers.list_stream_servers(), & &1.id)
     end
   end
 
@@ -556,6 +576,203 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
                  application_id: application_id,
                  lock_version: 4
                }
+    end
+  end
+
+  describe "list_stream_server_api_keys/1" do
+    test "returns the server's keys ordered by name" do
+      stream_server = stream_server_fixture()
+      b_key = stream_server_api_key_fixture(stream_server, %{"name" => "b-key"})
+      a_key = stream_server_api_key_fixture(stream_server, %{"name" => "a-key"})
+      _other = stream_server_api_key_fixture(stream_server_fixture())
+
+      keys = StreamServers.list_stream_server_api_keys(stream_server.id)
+
+      assert Enum.map(keys, & &1.id) == [a_key.id, b_key.id]
+    end
+  end
+
+  describe "get_stream_server_api_key!/1" do
+    test "returns the key and raises when missing" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+
+      assert StreamServers.get_stream_server_api_key!(key.id).id == key.id
+
+      assert_raise Ecto.NoResultsError, fn ->
+        StreamServers.get_stream_server_api_key!(Ecto.UUID.generate())
+      end
+    end
+  end
+
+  describe "create_stream_server_api_key/1" do
+    test "creates a key with defaults and returns the plaintext secret once" do
+      stream_server = stream_server_fixture()
+
+      {:ok, %ApiKey{} = api_key} =
+        StreamServers.create_stream_server_api_key(%{
+          "name" => "node-agent",
+          "stream_server_id" => stream_server.id
+        })
+
+      assert {:ok, _} = Ecto.UUID.cast(api_key.id)
+      assert api_key.name == "node-agent"
+      assert api_key.stream_server_id == stream_server.id
+      assert api_key.enabled == true
+      assert api_key.lock_version == 1
+      assert api_key.prefix =~ ~r/^ssak_[0-9a-f-]{36}$/
+      assert api_key.plaintext_key =~ ~r/^ssak_/
+      assert String.starts_with?(api_key.plaintext_key, api_key.prefix <> "_")
+      assert api_key.hashed_api_key != api_key.plaintext_key
+
+      loaded = StreamServers.get_stream_server_api_key!(api_key.id)
+      assert loaded.plaintext_key == nil
+      assert loaded.hashed_api_key == api_key.hashed_api_key
+    end
+
+    test "persists only the bcrypt hash of the secret" do
+      stream_server = stream_server_fixture()
+
+      {:ok, api_key} =
+        StreamServers.create_stream_server_api_key(%{
+          "name" => "n",
+          "stream_server_id" => stream_server.id
+        })
+
+      assert ApiKeySecret.verify(api_key.plaintext_key, api_key.hashed_api_key)
+    end
+
+    test "requires a name and a stream_server_id" do
+      {:error, changeset} = StreamServers.create_stream_server_api_key(%{})
+
+      assert %{name: ["can't be blank"], stream_server_id: ["can't be blank"]} =
+               errors_on(changeset)
+    end
+
+    test "rejects a missing stream server" do
+      assert_raise Ecto.ConstraintError, fn ->
+        StreamServers.create_stream_server_api_key(%{
+          "name" => "n",
+          "stream_server_id" => Ecto.UUID.generate()
+        })
+      end
+    end
+
+    test "allows two keys on the same server to share a name" do
+      stream_server = stream_server_fixture()
+      first = stream_server_api_key_fixture(stream_server, %{"name" => "node-agent"})
+
+      {:ok, %ApiKey{} = second} =
+        StreamServers.create_stream_server_api_key(%{
+          "name" => "node-agent",
+          "stream_server_id" => stream_server.id
+        })
+
+      assert second.name == first.name
+      assert second.id != first.id
+    end
+
+    test "enforces the prefix unique constraint" do
+      stream_server = stream_server_fixture()
+      existing = stream_server_api_key_fixture(stream_server)
+
+      {:error, changeset} =
+        %ApiKey{}
+        |> ApiKey.changeset(%{
+          "name" => "other",
+          "stream_server_id" => stream_server.id
+        })
+        |> Ecto.Changeset.put_change(:prefix, existing.prefix)
+        |> Ecto.Changeset.put_change(:hashed_api_key, "another-hash")
+        |> Repo.insert()
+
+      assert %{prefix: ["has already been taken"]} = errors_on(changeset)
+    end
+
+    test "enforces the hashed secret unique constraint per server" do
+      stream_server = stream_server_fixture()
+      existing = stream_server_api_key_fixture(stream_server)
+
+      {:error, changeset} =
+        %ApiKey{}
+        |> ApiKey.changeset(%{
+          "name" => "other",
+          "stream_server_id" => stream_server.id
+        })
+        |> Ecto.Changeset.put_change(:prefix, "ssak_" <> Ecto.UUID.generate())
+        |> Ecto.Changeset.put_change(:hashed_api_key, existing.hashed_api_key)
+        |> Repo.insert()
+
+      assert %{hashed_api_key: ["has already been taken"]} = errors_on(changeset)
+    end
+  end
+
+  describe "stream server api key field updates" do
+    test "rename, description edit, and enable/disable bump lock_version" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+      assert key.lock_version == 1
+
+      {:ok, key} = StreamServers.rename_stream_server_api_key(key.id, "renamed")
+      assert key.name == "renamed"
+      assert key.lock_version == 2
+
+      {:ok, key} =
+        StreamServers.edit_stream_server_api_key_description(key.id, "new desc")
+
+      assert key.description == "new desc"
+      assert key.lock_version == 3
+
+      {:ok, key} = StreamServers.disable_stream_server_api_key(key.id)
+      assert key.enabled == false
+      assert key.lock_version == 4
+
+      {:ok, key} = StreamServers.enable_stream_server_api_key(key.id)
+      assert key.enabled == true
+      assert key.lock_version == 5
+
+      assert StreamServers.get_stream_server_api_key!(key.id).lock_version == 5
+    end
+
+    test "rename requires a name" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+
+      {:error, changeset} = StreamServers.rename_stream_server_api_key(key.id, "")
+
+      assert %{name: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "a stale update returns an error changeset instead of raising" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+      stale = StreamServers.get_stream_server_api_key!(key.id)
+
+      {:ok, _} = StreamServers.rename_stream_server_api_key(key.id, "renamed")
+
+      assert {:error, changeset} =
+               stale
+               |> ApiKey.name_changeset(%{"name" => "stale name"})
+               |> Repo.update(stale_error_field: :lock_version)
+
+      assert %{lock_version: ["is stale"]} = errors_on(changeset)
+      assert StreamServers.get_stream_server_api_key!(key.id).name == "renamed"
+    end
+
+    test "no update path can change the hashed secret" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+      attrs = %{"hashed_api_key" => "forged"}
+
+      for changeset <- [
+            ApiKey.name_changeset(key, Map.put(attrs, "name", "x")),
+            ApiKey.description_changeset(key, attrs),
+            ApiKey.enabled_changeset(key, Map.put(attrs, "enabled", false))
+          ] do
+        refute Map.has_key?(changeset.changes, :hashed_api_key)
+      end
+    end
+  end
+
+  describe "change_stream_server_api_key/2" do
+    test "returns a changeset" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+      assert %Ecto.Changeset{} = StreamServers.change_stream_server_api_key(key)
     end
   end
 end

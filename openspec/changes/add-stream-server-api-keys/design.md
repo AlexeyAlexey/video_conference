@@ -48,24 +48,33 @@ how the codebase separates `Applications` and `StreamServers`.
 
 New schema `StreamServers.ApiKey` (table `stream_server_api_keys`):
 `id` binary_id PK, `stream_server_id` FK `on_delete: :delete_all`,
-`name`, `hashed_api_key`, `description`, `enabled` (default true),
-`lock_version` (default 1), timestamps. Unique index on
-`(stream_server_id, hashed_api_key)` only — names are deliberately not
+`name`, `prefix`, `hashed_api_key`, `description`, `enabled` (default
+true), `lock_version` (default 1), timestamps. Unique index on `prefix`
+(the secret's `env_prefix <> prefix_id` lookup prefix) and on
+`(stream_server_id, hashed_api_key)` — names are deliberately not
 unique (unlike application API keys), per the request.
 
 ### Shared `StreamServerAdminPortal.ApiKeySecret` module
 
 `Applications.generate_api_key_secret/0` moves into a new
-`ApiKeySecret` module exposing `generate/0` (`"ssak_" <>`
-`Base.url_encode64(32 random bytes)`) and `hash/1`
-(`Bcrypt.hash_pwd_salt`). Both `Applications.create_api_key/1` and the new
-`StreamServers.create_stream_server_api_key/1` call it.
-`Applications.generate_api_key_secret/0` is kept as a one-line delegate —
-the `ssak_` ("stream server api key") prefix already fits both scopes and
-existing tests may call it. Alternatives considered: duplicating the
-function in `StreamServers` (rejected — the request explicitly asks to
-encapsulate it); a per-scope prefix (rejected — one prefix is already
-descriptive of both).
+`ApiKeySecret` module exposing `generate/2` (`env_prefix <> "_" <>
+prefix_id <> "_" <> Base.url_encode64(32 random bytes)`), `prefix/2`
+(`env_prefix <> "_" <> prefix_id`), `hash/1` (`Bcrypt.hash_pwd_salt`),
+and `verify/2` (`Bcrypt.verify_pass`).
+Both `Applications.create_api_key/1` and the new
+`StreamServers.create_stream_server_api_key/1` call it — stream server
+keys pass `"ssak"` ("stream server api key"), application keys pass
+`"aak"` ("application api key"). Both scopes use an independently
+generated `prefix_id` (a fresh `Ecto.UUID.generate()`, decoupled from
+the key's PK). The stream server key's `prefix` column stores
+`"ssak_" <> prefix_id` so a presented secret can be matched to the
+record.
+`Applications.generate_api_key_secret/1` is kept as a thin wrapper
+passing `"aak"` — existing tests may call it. Alternatives considered:
+duplicating the function in `StreamServers` (rejected — the request
+explicitly asks to encapsulate it); the stream server id as `prefix_id`
+(rejected — `prefix` is unique while a server can own multiple keys, so
+a per-key generated id is required).
 
 ### Context API on `StreamServers`
 

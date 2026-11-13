@@ -51,6 +51,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
       live "/stream-servers", StreamServersLive, :index
       live "/stream-servers/new", StreamServersLive, :new
       live "/stream-servers/:id/assign", StreamServersLive, :assign
+      live "/stream-servers/api-keys", StreamServerApiKeysLive, :index
 
       # Mirror routes for LiveView URL resolution only, see the note below.
       live "/stream-server-admin", DashboardLive, :index
@@ -72,6 +73,10 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
       live "/stream-server-admin/stream-servers", StreamServersLive, :index
       live "/stream-server-admin/stream-servers/new", StreamServersLive, :new
       live "/stream-server-admin/stream-servers/:id/assign", StreamServersLive, :assign
+
+      live "/stream-server-admin/stream-servers/api-keys",
+           StreamServerApiKeysLive,
+           :index
     end
   end
 

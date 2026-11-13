@@ -6,8 +6,8 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.AdminComponents do
 
   @doc """
   Renders the stream server admin portal sidebar with the portal
-  navigation: a link to the dashboard, a "Stream servers" item, an
-  "Applications" item with its
+  navigation: a link to the dashboard, a "Stream servers" item with its
+  "API keys" sub-item, an "Applications" item with its
   "API keys" and "Stream server public keys" sub-items, the signed-in admin's email, a
   link to the settings page with its "Change password" sub-item, and a
   log out button. Rendered only when an admin is authenticated.
@@ -53,6 +53,16 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.AdminComponents do
           >
             <.icon name="hero-server-stack" class="size-4" /> Stream servers
           </.link>
+          <ul>
+            <li>
+              <.link
+                id="sidebar-stream-server-api-keys-link"
+                navigate="/stream-server-admin/stream-servers/api-keys"
+              >
+                API keys
+              </.link>
+            </li>
+          </ul>
         </li>
         <li>
           <.link id="sidebar-applications-link" navigate="/stream-server-admin/applications">

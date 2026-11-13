@@ -15,6 +15,7 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
   }
 
   alias VideoConference.StreamServerAdminPortal.StreamServers
+  alias VideoConference.StreamServerAdminPortal.StreamServers.ApiKey, as: StreamServerApiKey
   alias VideoConference.StreamServerAdminPortal.StreamServers.StreamServer
 
   def unique_admin_email, do: "admin#{System.unique_integer([:positive])}@example.com"
@@ -93,5 +94,18 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
       |> StreamServers.create_stream_server()
 
     stream_server
+  end
+
+  def unique_stream_server_api_key_name,
+    do: "stream-server-api-key-#{System.unique_integer([:positive])}"
+
+  def stream_server_api_key_fixture(%StreamServer{} = stream_server, attrs \\ %{}) do
+    {:ok, %StreamServerApiKey{} = api_key} =
+      attrs
+      |> Enum.into(%{"name" => unique_stream_server_api_key_name()})
+      |> Map.put("stream_server_id", stream_server.id)
+      |> StreamServers.create_stream_server_api_key()
+
+    api_key
   end
 end
