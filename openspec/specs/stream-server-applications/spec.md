@@ -54,34 +54,49 @@ create, edit, enable/disable, and delete applications from the portal.
 - **WHEN** a portal admin deletes an application
 - **THEN** the application and all of its API keys are removed
 
-### Requirement: API key records
+### Requirement: Application API key record
 
-Each API key SHALL have a UUID primary key, a name, an optional
-description, a secret stored only as a hash, a required reference to its
-application, an enabled flag, and timestamps. Within one application, API
-key names SHALL be unique and API key secrets SHALL be unique.
+The system SHALL persist each application API key with a UUID primary
+key, a required non-unique `name`, an optional `description`, a unique
+`prefix` holding the secret's `env_prefix <> "_" <> prefix_id` lookup
+prefix, a secret stored only as a hash, a required `application_id`, an
+`enabled` flag, a `lock_version`, and timestamps. The hashed secret
+SHALL be unique within one application.
 
 #### Scenario: API key belongs to an application
 
 - **WHEN** an API key is created for an application
 - **THEN** it is persisted with that application's id and is listed under that application
 
-#### Scenario: Duplicate key name within an application rejected
+#### Scenario: Duplicate key name allowed
 
-- **WHEN** a portal admin creates an API key whose name already exists on the same application
-- **THEN** the key is not created and a uniqueness error is shown
+- **WHEN** an application already has an API key named "partner-integration"
+- **THEN** creating another API key named "partner-integration" on the same application succeeds
 
-#### Scenario: Same key name allowed on different applications
+### Requirement: Optimistic concurrency for application API keys
 
-- **WHEN** a portal admin creates an API key whose name exists only on a different application
-- **THEN** the key is created
+Every update of an application API key SHALL be guarded by the record's
+`lock_version`: the write succeeds only when the persisted
+`lock_version` still matches the version the caller loaded, and a
+successful write increments it. A write attempted against a stale record
+version SHALL fail and report the record as stale through the normal
+error channel — it SHALL NOT raise an unhandled exception.
+
+#### Scenario: Stale update rejected
+
+- **WHEN** two admins load the same API key and both submit updates, the second write using the outdated `lock_version`
+- **THEN** the second write fails with a stale-record error on the `lock_version` field and the first write's change is preserved
 
 ### Requirement: API key secret generation and one-time display
 
-The system SHALL generate a random API key secret when an API key is
-created. The plaintext secret SHALL be displayed to the admin exactly
-once, immediately after creation, and SHALL NOT be retrievable or
-displayed again afterwards.
+The system SHALL generate a random API key secret in the form
+`env_prefix <> "_" <> prefix_id <> "_" <> <random>` — where `env_prefix`
+is `"aak"` ("application api key") and `prefix_id` is an independently
+generated id — when an API key is created, and SHALL persist the
+`env_prefix <> "_" <> prefix_id` portion as the key's `prefix`. The
+plaintext secret SHALL be displayed to the admin exactly once,
+immediately after creation, and SHALL NOT be retrievable or displayed
+again afterwards.
 
 #### Scenario: Secret shown once on creation
 
@@ -109,31 +124,64 @@ persistent form.
 - **WHEN** the displayed plaintext secret is checked against the stored hash
 - **THEN** it verifies, and a different secret does not verify
 
-### Requirement: API key management grouped by application
+### Requirement: Application API keys page and required application filter
 
-Authenticated portal admins SHALL manage API keys from an API keys page
-where keys are grouped by their application. For each key the admin SHALL
-be able to create, edit name/description/enabled, and delete it.
+An authenticated portal admin SHALL be able to open a page at
+`/stream-server-admin/api-keys` for managing application API keys. The
+page SHALL offer a required application filter whose searchable options
+are the application names. There SHALL be no option to select all
+applications; until an application is chosen the page SHALL prompt the
+admin to pick one and SHALL NOT list keys or offer adding a key. The
+chosen application SHALL be reflected in the page URL.
 
-#### Scenario: Keys grouped by application
+#### Scenario: Prompt before an application is picked
 
-- **WHEN** a portal admin opens the API keys page
-- **THEN** API keys are presented grouped under their application
+- **WHEN** an admin opens the page with no application selected
+- **THEN** the page shows a prompt to select an application, lists no keys, and the add action is unavailable
 
-#### Scenario: Create an API key
+#### Scenario: Filtering keys by application
 
-- **WHEN** a portal admin creates an API key for a chosen application with a name and optional description
-- **THEN** the key is persisted, the plaintext secret is displayed once, and the key appears under that application
+- **WHEN** an admin picks an application in the filter
+- **THEN** the page lists that application's API keys and the URL carries the chosen application id
 
-#### Scenario: Edit an API key
+#### Scenario: Key prefix shown
 
-- **WHEN** a portal admin updates an API key's name, description, or enabled flag
-- **THEN** the record reflects the new values without changing the stored secret hash
+- **WHEN** the page lists an application's API keys
+- **THEN** each key row shows its `prefix` in an API KEY column with a copy affordance
 
-#### Scenario: Delete an API key
+#### Scenario: Searching filter options
 
-- **WHEN** a portal admin deletes an API key
-- **THEN** the key record is removed and no longer listed
+- **WHEN** an admin types in the filter's search field
+- **THEN** the application options are narrowed by the typed text
+
+### Requirement: Application API key management
+
+An authenticated portal admin SHALL be able to add an API key for the
+filtered application through a modal whose form shows the application
+read-only and accepts name, description, and enabled. The admin SHALL
+rename a key, edit its description, and toggle its enabled flag through
+per-field controls — there SHALL be no whole-row edit form and no
+delete action. Validation errors SHALL be shown inline.
+
+#### Scenario: Adding a key through the modal
+
+- **WHEN** an admin with an application selected activates "Add API key" and submits a valid form
+- **THEN** the key is created for the filtered application and the one-time secret is displayed
+
+#### Scenario: Renaming a key
+
+- **WHEN** an admin activates the rename control on a key row and saves a new name
+- **THEN** the key's name is updated
+
+#### Scenario: Editing a key's description
+
+- **WHEN** an admin activates the description control on a key row and saves
+- **THEN** the key's description is updated
+
+#### Scenario: Toggling enabled
+
+- **WHEN** an admin clicks a key's enabled checkbox
+- **THEN** the enabled flag is persisted immediately to the opposite value
 
 ### Requirement: Truncated descriptions in portal lists
 
