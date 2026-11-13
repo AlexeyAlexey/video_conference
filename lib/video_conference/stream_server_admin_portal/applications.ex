@@ -35,23 +35,25 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
 
   @doc """
   Returns all applications, ordered by name.
+
+  Options:
+
+    * `:search` — limits the list to applications whose `name` contains
+      the given text (case-insensitive substring match). `nil` or `""`
+      lists every application.
   """
-  def list_applications do
-    Repo.all(from a in Application, order_by: [asc: a.name])
+  def list_applications(opts \\ []) do
+    Application
+    |> filter_by_search(Keyword.get(opts, :search))
+    |> order_by([a], asc: a.name)
+    |> Repo.all()
   end
 
-  @doc """
-  Returns all applications ordered by name, each with its API keys
-  preloaded (ordered by name). Used by the grouped API keys portal page.
-  """
-  def list_applications_with_api_keys do
-    keys = from k in ApiKey, order_by: [asc: k.name]
+  defp filter_by_search(query, search) when search in [nil, ""], do: query
 
-    Repo.all(
-      from a in Application,
-        order_by: [asc: a.name],
-        preload: [api_keys: ^keys]
-    )
+  defp filter_by_search(query, search) do
+    pattern = "%#{search}%"
+    from a in query, where: like(a.name, ^pattern)
   end
 
   @doc """
@@ -197,10 +199,10 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   @doc """
   Returns the API keys of the given application, ordered by name.
   """
-  def list_api_keys(%Application{} = application) do
+  def list_api_keys(application_id) do
     Repo.all(
       from k in ApiKey,
-        where: k.application_id == ^application.id,
+        where: k.application_id == ^application_id,
         order_by: [asc: k.name]
     )
   end
@@ -220,10 +222,12 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   is persisted.
   """
   def create_api_key(attrs \\ %{}) do
-    secret = generate_api_key_secret(Ecto.UUID.generate())
+    prefix_id = Ecto.UUID.generate()
+    secret = generate_api_key_secret(prefix_id)
 
     %ApiKey{}
     |> ApiKey.changeset(attrs)
+    |> Ecto.Changeset.put_change(:prefix, ApiKeySecret.prefix("aak", prefix_id))
     |> Ecto.Changeset.put_change(:hashed_api_key, ApiKeySecret.hash(secret))
     |> Repo.insert()
     |> case do
@@ -233,21 +237,57 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Updates an API key's name, description, enabled flag, or parent
-  application. The stored secret hash is never touched.
+  Renames an API key.
+
+  Accepts a key id or a loaded `%ApiKey{}`. Passing a loaded record
+  writes against its `lock_version`, so a write attempted with a stale
+  copy fails on the `lock_version` field.
   """
-  def update_api_key(%ApiKey{} = api_key, attrs) do
-    api_key
-    |> ApiKey.changeset(attrs)
-    |> Repo.update()
+  def rename_api_key(key_or_id, name) do
+    key_or_id
+    |> fetch_api_key()
+    |> ApiKey.name_changeset(%{"name" => name})
+    |> Repo.update(stale_error_field: :lock_version)
   end
 
   @doc """
-  Deletes an API key.
+  Updates an API key's description.
+
+  Accepts a key id or a loaded `%ApiKey{}` — see `rename_api_key/2`.
   """
-  def delete_api_key(%ApiKey{} = api_key) do
-    Repo.delete(api_key)
+  def edit_api_key_description(key_or_id, description) do
+    key_or_id
+    |> fetch_api_key()
+    |> ApiKey.description_changeset(%{"description" => description})
+    |> Repo.update(stale_error_field: :lock_version)
   end
+
+  @doc """
+  Enables an API key.
+
+  Accepts a key id or a loaded `%ApiKey{}` — see `rename_api_key/2`.
+  """
+  def enable_api_key(key_or_id) do
+    key_or_id
+    |> fetch_api_key()
+    |> ApiKey.enabled_changeset(%{"enabled" => true})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  @doc """
+  Disables an API key.
+
+  Accepts a key id or a loaded `%ApiKey{}` — see `rename_api_key/2`.
+  """
+  def disable_api_key(key_or_id) do
+    key_or_id
+    |> fetch_api_key()
+    |> ApiKey.enabled_changeset(%{"enabled" => false})
+    |> Repo.update(stale_error_field: :lock_version)
+  end
+
+  defp fetch_api_key(%ApiKey{} = api_key), do: api_key
+  defp fetch_api_key(id), do: get_api_key!(id)
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking API key changes.

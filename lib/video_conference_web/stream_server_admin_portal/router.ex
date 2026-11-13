@@ -46,8 +46,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
            :new
 
       live "/api-keys", ApiKeysLive, :index
-      live "/api-keys/new", ApiKeysLive, :new
-      live "/api-keys/:id/edit", ApiKeysLive, :edit
       live "/stream-servers", StreamServersLive, :index
       live "/stream-servers/new", StreamServersLive, :new
       live "/stream-servers/:id/assign", StreamServersLive, :assign
@@ -68,8 +66,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
            :new
 
       live "/stream-server-admin/api-keys", ApiKeysLive, :index
-      live "/stream-server-admin/api-keys/new", ApiKeysLive, :new
-      live "/stream-server-admin/api-keys/:id/edit", ApiKeysLive, :edit
       live "/stream-server-admin/stream-servers", StreamServersLive, :index
       live "/stream-server-admin/stream-servers/new", StreamServersLive, :new
       live "/stream-server-admin/stream-servers/:id/assign", StreamServersLive, :assign

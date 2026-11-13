@@ -25,7 +25,7 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
   import VideoConference.StreamServerAdminPortalFixtures
 
-  describe "list_applications/0" do
+  describe "list_applications/1" do
     test "returns applications ordered by name" do
       app = application_fixture(%{"name" => "zzz app"})
 
@@ -34,6 +34,22 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert "Default App" in names
       assert app.name in names
       assert names == Enum.sort(names)
+    end
+
+    test "narrows the list by a case-insensitive name search" do
+      _match = application_fixture(%{"name" => "Zucchini App"})
+      _other = application_fixture(%{"name" => "plain metrics"})
+
+      names = Enum.map(Applications.list_applications(search: "zucchini"), & &1.name)
+
+      assert names == ["Zucchini App"]
+    end
+
+    test "nil and empty search list every application" do
+      all = Enum.map(Applications.list_applications(), & &1.id)
+
+      assert Enum.map(Applications.list_applications(search: ""), & &1.id) == all
+      assert Enum.map(Applications.list_applications(search: nil), & &1.id) == all
     end
   end
 
@@ -273,8 +289,15 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       assert {:ok, _} = Ecto.UUID.cast(api_key.id)
       assert api_key.application_id == application.id
       assert api_key.enabled == true
+      assert api_key.lock_version == 1
+      assert api_key.prefix =~ ~r/^aak_[0-9a-f-]{36}$/
       assert api_key.plaintext_key =~ ~r/^aak_[0-9a-f-]{36}_[A-Za-z0-9_-]{43}$/
+      assert String.starts_with?(api_key.plaintext_key, api_key.prefix <> "_")
       assert ApiKeySecret.verify(api_key.plaintext_key, api_key.hashed_api_key)
+
+      loaded = Applications.get_api_key!(api_key.id)
+      assert loaded.prefix == api_key.prefix
+      assert loaded.plaintext_key == nil
     end
 
     test "stores the secret only as a hash" do
@@ -293,17 +316,34 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       refute stored.plaintext_key
     end
 
-    test "returns an error changeset for a duplicate name within the application" do
+    test "requires a name and an application_id" do
+      {:error, changeset} = Applications.create_api_key(%{})
+
+      assert %{name: ["can't be blank"], application_id: ["can't be blank"]} =
+               errors_on(changeset)
+    end
+
+    test "rejects a missing application" do
+      assert_raise Ecto.ConstraintError, fn ->
+        Applications.create_api_key(%{
+          "name" => "n",
+          "application_id" => Ecto.UUID.generate()
+        })
+      end
+    end
+
+    test "allows duplicate names within the same application" do
       application = application_fixture()
       api_key = api_key_fixture(application)
 
-      {:error, changeset} =
+      {:ok, %ApiKey{} = other_key} =
         Applications.create_api_key(%{
           "name" => api_key.name,
           "application_id" => application.id
         })
 
-      assert %{name: ["has already been taken"]} = errors_on(changeset)
+      assert other_key.name == api_key.name
+      assert other_key.id != api_key.id
     end
 
     test "allows the same key name on different applications" do
@@ -319,51 +359,133 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
       assert other_key.application_id == other.id
     end
-  end
 
-  describe "update_api_key/2" do
-    test "updates fields without changing the stored secret hash" do
+    test "enforces the prefix unique constraint" do
       application = application_fixture()
-      api_key = api_key_fixture(application)
+      existing = api_key_fixture(application)
 
-      {:ok, updated} =
-        Applications.update_api_key(api_key, %{
-          "name" => "renamed key",
-          "description" => "new desc",
-          "enabled" => false
+      {:error, changeset} =
+        %ApiKey{}
+        |> ApiKey.changeset(%{
+          "name" => "other",
+          "application_id" => application.id
         })
+        |> Ecto.Changeset.put_change(:prefix, existing.prefix)
+        |> Ecto.Changeset.put_change(:hashed_api_key, "another-hash")
+        |> PortalRepo.insert()
 
-      assert updated.name == "renamed key"
-      assert updated.description == "new desc"
-      assert updated.enabled == false
-      assert updated.hashed_api_key == api_key.hashed_api_key
-
-      reloaded = Applications.get_api_key!(api_key.id)
-      refute reloaded.plaintext_key
+      assert %{prefix: ["has already been taken"]} = errors_on(changeset)
     end
-  end
 
-  describe "delete_api_key/1" do
-    test "removes the key" do
-      api_key = api_key_fixture(application_fixture())
-
-      {:ok, _} = Applications.delete_api_key(api_key)
-
-      assert_raise Ecto.NoResultsError, fn -> Applications.get_api_key!(api_key.id) end
-    end
-  end
-
-  describe "list_applications_with_api_keys/0" do
-    test "preloads each application's keys" do
+    test "enforces the hashed secret unique constraint per application" do
       application = application_fixture()
-      key = api_key_fixture(application)
+      existing = api_key_fixture(application)
 
-      loaded =
-        Applications.list_applications_with_api_keys()
-        |> Enum.find(&(&1.id == application.id))
+      {:error, changeset} =
+        %ApiKey{}
+        |> ApiKey.changeset(%{
+          "name" => "other",
+          "application_id" => application.id
+        })
+        |> Ecto.Changeset.put_change(:prefix, "aak_" <> Ecto.UUID.generate())
+        |> Ecto.Changeset.put_change(:hashed_api_key, existing.hashed_api_key)
+        |> PortalRepo.insert()
 
-      assert [%ApiKey{id: id}] = loaded.api_keys
-      assert id == key.id
+      assert %{hashed_api_key: ["has already been taken"]} = errors_on(changeset)
+    end
+  end
+
+  describe "list_api_keys/1" do
+    test "returns the application's keys ordered by name" do
+      application = application_fixture()
+      b_key = api_key_fixture(application, %{"name" => "b-key"})
+      a_key = api_key_fixture(application, %{"name" => "a-key"})
+      _other = api_key_fixture(application_fixture())
+
+      keys = Applications.list_api_keys(application.id)
+
+      assert Enum.map(keys, & &1.id) == [a_key.id, b_key.id]
+    end
+  end
+
+  describe "get_api_key!/1" do
+    test "returns the key and raises when missing" do
+      key = api_key_fixture(application_fixture())
+
+      assert Applications.get_api_key!(key.id).id == key.id
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Applications.get_api_key!(Ecto.UUID.generate())
+      end
+    end
+  end
+
+  describe "api key field updates" do
+    test "rename, description edit, and enable/disable bump lock_version" do
+      key = api_key_fixture(application_fixture())
+      assert key.lock_version == 1
+
+      {:ok, key} = Applications.rename_api_key(key.id, "renamed")
+      assert key.name == "renamed"
+      assert key.lock_version == 2
+
+      {:ok, key} = Applications.edit_api_key_description(key.id, "new desc")
+      assert key.description == "new desc"
+      assert key.lock_version == 3
+
+      {:ok, key} = Applications.disable_api_key(key.id)
+      assert key.enabled == false
+      assert key.lock_version == 4
+
+      {:ok, key} = Applications.enable_api_key(key.id)
+      assert key.enabled == true
+      assert key.lock_version == 5
+
+      assert Applications.get_api_key!(key.id).lock_version == 5
+    end
+
+    test "rename requires a name" do
+      key = api_key_fixture(application_fixture())
+
+      {:error, changeset} = Applications.rename_api_key(key.id, "")
+
+      assert %{name: ["can't be blank"]} = errors_on(changeset)
+    end
+
+    test "a stale update returns an error changeset instead of raising" do
+      key = api_key_fixture(application_fixture())
+      stale = Applications.get_api_key!(key.id)
+
+      {:ok, _} = Applications.rename_api_key(key.id, "renamed")
+
+      assert {:error, changeset} =
+               stale
+               |> ApiKey.name_changeset(%{"name" => "stale name"})
+               |> PortalRepo.update(stale_error_field: :lock_version)
+
+      assert %{lock_version: ["is stale"]} = errors_on(changeset)
+      assert Applications.get_api_key!(key.id).name == "renamed"
+    end
+
+    test "no update path can change the hashed secret" do
+      key = api_key_fixture(application_fixture())
+      attrs = %{"hashed_api_key" => "forged"}
+
+      for changeset <- [
+            ApiKey.name_changeset(key, Map.put(attrs, "name", "x")),
+            ApiKey.description_changeset(key, attrs),
+            ApiKey.enabled_changeset(key, Map.put(attrs, "enabled", false))
+          ] do
+        refute Map.has_key?(changeset.changes, :hashed_api_key)
+      end
+    end
+  end
+
+  describe "change_api_key/2" do
+    test "returns a changeset" do
+      key = api_key_fixture(application_fixture())
+
+      assert %Ecto.Changeset{} = Applications.change_api_key(key)
     end
   end
 

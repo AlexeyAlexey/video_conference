@@ -2,7 +2,7 @@ defmodule VideoConference.StreamServerAdminPortal.Applications.Application do
   @moduledoc """
   A third-party application that integrates with the stream server API.
 
-  Applications own API keys (`api_keys`) that authenticate their calls to
+  Applications own API keys (`application_api_keys`) that authenticate their calls to
   the stream server REST API.
   """
   use Ecto.Schema

@@ -4,7 +4,6 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLiveTest do
   import Phoenix.LiveViewTest
   import VideoConference.StreamServerAdminPortalFixtures
 
-  alias VideoConference.StreamServerAdminPortal.ApiKeySecret
   alias VideoConference.StreamServerAdminPortal.Applications
 
   setup %{conn: conn} do
@@ -19,35 +18,108 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLiveTest do
              live(conn, "/stream-server-admin/api-keys")
   end
 
-  test "lists API keys grouped under their application", %{conn: conn} do
-    application = application_fixture(%{"name" => "billing app"})
-    other = application_fixture(%{"name" => "metrics app"})
-    empty = application_fixture(%{"name" => "empty app"})
+  test "links to API keys from the sidebar under applications", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys")
 
-    key = api_key_fixture(application, %{"name" => "key-one"})
-    other_key = api_key_fixture(other, %{"name" => "key-two", "enabled" => "false"})
-
-    {:ok, lv, html} = live(conn, "/stream-server-admin/api-keys")
-
-    assert html =~ "Default App"
-    assert html =~ "Default API Key"
-    assert has_element?(lv, "#application-group-#{application.id}")
-    assert has_element?(lv, "#application-group-#{application.id} #api-key-row-#{key.id}")
-    assert has_element?(lv, "#application-group-#{other.id} #api-key-row-#{other_key.id}")
-    assert has_element?(lv, "#api-key-row-#{key.id} td", "Yes")
-    assert has_element?(lv, "#api-key-row-#{other_key.id} td", "No")
-    assert has_element?(lv, "#no-api-keys-#{empty.id}", "No API keys yet")
+    assert has_element?(
+             lv,
+             ~s|a#sidebar-api-keys-link[href="/stream-server-admin/api-keys"]|
+           )
   end
 
-  test "adds an API key with a chosen application and shows the secret once", %{conn: conn} do
-    application = application_fixture(%{"name" => "billing app"})
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys/new")
+  test "prompts to select an application before listing keys or adding one",
+       %{conn: conn} do
+    _application = application_fixture()
 
-    lv |> element("#application-dropdown-button") |> render_click()
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys")
+
+    assert has_element?(lv, "#select-application-prompt")
+    refute has_element?(lv, "#api-keys-table")
+    refute has_element?(lv, "#add-api-key")
+  end
+
+  test "filter options are application names and picking one lists that app's keys",
+       %{conn: conn} do
+    application = application_fixture(%{"name" => "billing app"})
+    other = application_fixture(%{"name" => "metrics app"})
+    key = api_key_fixture(application, %{"name" => "key-one"})
+    other_key = api_key_fixture(other)
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys")
+
+    lv |> element("#application-filter-dropdown-button") |> render_click()
+
+    assert has_element?(
+             lv,
+             ~s|#application-filter-dropdown button[phx-value-id="#{application.id}"]|,
+             "billing app"
+           )
+
+    refute has_element?(lv, "#application-filter-option-none")
 
     lv
-    |> element(~s|#application-dropdown button[phx-value-id="#{application.id}"]|)
+    |> element(~s|#application-filter-dropdown button[phx-value-id="#{application.id}"]|)
     |> render_click()
+
+    assert_patch(
+      lv,
+      "/stream-server-admin/api-keys?application_id=#{application.id}"
+    )
+
+    assert has_element?(lv, "#api-key-row-#{key.id}")
+    refute has_element?(lv, "#api-key-row-#{other_key.id}")
+    refute has_element?(lv, "#select-application-prompt")
+  end
+
+  test "filter options are searchable", %{conn: conn} do
+    application = application_fixture(%{"name" => "zucchini"})
+    _other = application_fixture(%{"name" => "apple"})
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys")
+
+    lv |> element("#application-filter-dropdown-button") |> render_click()
+
+    lv
+    |> element("#application-filter-search")
+    |> render_change(%{"application-filter_search" => "zucch"})
+
+    assert has_element?(
+             lv,
+             ~s|#application-filter-dropdown button[phx-value-id="#{application.id}"]|
+           )
+
+    refute has_element?(lv, "#application-filter-dropdown button", "apple")
+  end
+
+  test "opening the page with an application_id param lists that app's keys",
+       %{conn: conn} do
+    application = application_fixture()
+    key = api_key_fixture(application)
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    assert has_element?(lv, "#api-key-row-#{key.id}")
+    refute has_element?(lv, "#select-application-prompt")
+  end
+
+  test "adds an API key for the filtered application through the modal", %{conn: conn} do
+    application = application_fixture(%{"name" => "billing app"})
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    lv |> element("#add-api-key") |> render_click()
+
+    assert has_element?(lv, "#add-api-key-modal")
+    assert has_element?(lv, "#add-api-key-application", "billing app")
+    refute has_element?(lv, "input[name='api_key[application_id]']")
 
     lv
     |> form("#api-key-form",
@@ -55,164 +127,250 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeysLiveTest do
     )
     |> render_submit()
 
-    assert_patch(lv, "/stream-server-admin/api-keys")
+    [loaded] = Applications.list_api_keys(application.id)
+    assert loaded.name == "new key"
+    assert loaded.description == "added by test"
+    assert loaded.enabled == true
 
-    api_key = Enum.find(Applications.list_api_keys(application), &(&1.name == "new key"))
-
-    html = render(lv)
-    assert html =~ api_key.name
-
-    # The generated secret is displayed exactly once after creation,
-    # with a copy-to-clipboard button next to it
     assert has_element?(lv, "#new-api-key-secret")
-
-    assert has_element?(
-             lv,
-             ~s|#copy-new-api-key-secret[onclick*="navigator.clipboard.writeText"]|
-           )
-
-    [secret] = Regex.run(~r/aak_[A-Za-z0-9_-]{20,}/, html)
-    assert ApiKeySecret.verify(secret, api_key.hashed_api_key)
-
-    # Dismissing removes it and it is not rendered again
-    lv |> element("#dismiss-new-api-key-secret") |> render_click()
-    refute has_element?(lv, "#new-api-key-secret")
-    refute render(lv) =~ secret
+    assert render(lv) =~ "aak_"
+    assert has_element?(lv, "#api-key-row-#{loaded.id}")
   end
 
-  test "the secret is not shown again after navigating away and back", %{conn: conn} do
-    application = application_fixture(%{"name" => "billing app"})
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys/new")
+  test "shows the generated secret exactly once", %{conn: conn} do
+    application = application_fixture()
 
-    lv |> element("#application-dropdown-button") |> render_click()
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    lv |> element("#add-api-key") |> render_click()
 
     lv
-    |> element(~s|#application-dropdown button[phx-value-id="#{application.id}"]|)
-    |> render_click()
-
-    lv
-    |> form("#api-key-form", api_key: %{"name" => "new key"})
+    |> form("#api-key-form", api_key: %{"name" => "n"})
     |> render_submit()
 
-    assert_patch(lv, "/stream-server-admin/api-keys")
-    [secret] = Regex.run(~r/aak_[A-Za-z0-9_-]{20,}/, render(lv))
+    assert has_element?(lv, "#new-api-key-secret")
 
-    api_key = Enum.find(Applications.list_api_keys(application), &(&1.name == "new key"))
+    lv |> element("#dismiss-new-api-key-secret") |> render_click()
+    refute has_element?(lv, "#new-api-key-secret")
 
-    # Navigate to the edit form and back to the index
-    render_patch(lv, "/stream-server-admin/api-keys/#{api_key.id}/edit")
-    assert has_element?(lv, "#api-key-form")
-    render_patch(lv, "/stream-server-admin/api-keys")
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
 
     refute has_element?(lv, "#new-api-key-secret")
-    refute render(lv) =~ secret
+    refute render(lv) =~ ~r/aak_[0-9a-f-]{36}_[A-Za-z0-9_-]{43}/
   end
 
-  test "picking an application sets the form value and clears a stale error", %{conn: conn} do
+  test "shows an inline error when the name is blank", %{conn: conn} do
     application = application_fixture()
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys/new")
 
-    lv
-    |> form("#api-key-form", api_key: %{"name" => "x"})
-    |> render_change()
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
 
-    assert has_element?(lv, "#application-field p.text-error", "can't be blank")
-
-    lv |> element("#application-dropdown-button") |> render_click()
-
-    lv
-    |> element(~s|#application-dropdown button[phx-value-id="#{application.id}"]|)
-    |> render_click()
-
-    refute has_element?(lv, "#application-field p.text-error")
-
-    assert has_element?(
-             lv,
-             ~s|input[name="api_key[application_id]"][value="#{application.id}"]|
-           )
-  end
-
-  test "shows an inline error on a duplicate name within the same application", %{conn: conn} do
-    application = application_fixture()
-    api_key = api_key_fixture(application, %{"name" => "taken"})
-
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys/new")
-
-    lv |> element("#application-dropdown-button") |> render_click()
-
-    lv
-    |> element(~s|#application-dropdown button[phx-value-id="#{application.id}"]|)
-    |> render_click()
+    lv |> element("#add-api-key") |> render_click()
 
     html =
       lv
-      |> form("#api-key-form", api_key: %{"name" => api_key.name})
+      |> form("#api-key-form", api_key: %{"name" => ""})
       |> render_submit()
 
-    assert html =~ "has already been taken"
-    assert Enum.count(Applications.list_api_keys(application)) == 1
+    assert html =~ "can&#39;t be blank" or html =~ "can't be blank"
+    assert has_element?(lv, "#add-api-key-modal")
+    assert Applications.list_api_keys(application.id) == []
   end
 
-  test "edits an API key without changing the stored secret hash", %{conn: conn} do
+  test "renames a key through the name pencil modal", %{conn: conn} do
     application = application_fixture()
-    api_key = api_key_fixture(application)
+    key = api_key_fixture(application)
 
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys/#{api_key.id}/edit")
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    lv |> element("#rename-key-#{key.id}") |> render_click()
+
+    assert has_element?(lv, "#rename-key-modal")
 
     lv
-    |> form("#api-key-form",
-      api_key: %{
-        "name" => "renamed key",
-        "description" => "updated",
-        "enabled" => "false"
-      }
-    )
+    |> form("#rename-key-form", rename_key: %{"name" => "renamed key"})
     |> render_submit()
 
-    assert_patch(lv, "/stream-server-admin/api-keys")
+    assert Applications.get_api_key!(key.id).name == "renamed key"
+    refute has_element?(lv, "#rename-key-modal")
+    assert has_element?(lv, "#api-key-row-#{key.id}", "renamed key")
+  end
 
-    updated = Applications.get_api_key!(api_key.id)
-    assert updated.name == "renamed key"
-    assert updated.description == "updated"
-    assert updated.enabled == false
-    assert updated.hashed_api_key == api_key.hashed_api_key
-    refute updated.plaintext_key
-    refute has_element?(lv, "#new-api-key-secret")
+  test "edits a key's description through the description pencil modal", %{conn: conn} do
+    application = application_fixture()
+    key = api_key_fixture(application)
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    lv |> element("#edit-description-#{key.id}") |> render_click()
+
+    assert has_element?(lv, "#edit-description-modal")
+
+    lv
+    |> form("#edit-description-form", key_description: %{"description" => "new desc"})
+    |> render_submit()
+
+    assert Applications.get_api_key!(key.id).description == "new desc"
+    refute has_element?(lv, "#edit-description-modal")
+    assert has_element?(lv, "#api-key-row-#{key.id}", "new desc")
   end
 
   test "truncates descriptions longer than 50 characters with an expandable control",
        %{conn: conn} do
     application = application_fixture()
     long = String.duplicate("x", 60)
-    api_key = api_key_fixture(application, %{"description" => long})
+    key = api_key_fixture(application, %{"description" => long})
     short = api_key_fixture(application, %{"description" => "short desc"})
 
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys")
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
 
     assert has_element?(
              lv,
-             "#api-key-description-short-#{api_key.id}",
+             "#key-description-short-#{key.id}",
              String.slice(long, 0, 50) <> "..."
            )
 
-    assert has_element?(lv, "#api-key-description-full-#{api_key.id}.hidden", long)
-    assert has_element?(lv, "#api-key-description-#{api_key.id}[phx-click]")
+    assert has_element?(lv, "#key-description-full-#{key.id}.hidden", long)
+    assert has_element?(lv, "#key-description-#{key.id}[phx-click]")
 
     # short descriptions render as plain text without a toggle
     assert has_element?(lv, "#api-key-row-#{short.id} td", "short desc")
-    refute has_element?(lv, "#api-key-description-#{short.id}")
+    refute has_element?(lv, "#key-description-#{short.id}")
   end
 
-  test "removes an API key", %{conn: conn} do
+  test "toggles a key's enabled flag via the checkbox", %{conn: conn} do
     application = application_fixture()
-    api_key = api_key_fixture(application)
+    key = api_key_fixture(application)
 
-    {:ok, lv, _html} = live(conn, "/stream-server-admin/api-keys")
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
 
-    lv |> element("#delete-api-key-#{api_key.id}") |> render_click()
+    assert has_element?(lv, "#enabled-key-#{key.id}[checked]")
 
-    refute has_element?(lv, "#api-key-row-#{api_key.id}")
+    lv |> element("#enabled-key-#{key.id}") |> render_click()
 
-    assert_raise Ecto.NoResultsError, fn -> Applications.get_api_key!(api_key.id) end
+    assert Applications.get_api_key!(key.id).enabled == false
+    refute has_element?(lv, "#enabled-key-#{key.id}[checked]")
+
+    lv |> element("#enabled-key-#{key.id}") |> render_click()
+
+    assert Applications.get_api_key!(key.id).enabled == true
+    assert has_element?(lv, "#enabled-key-#{key.id}[checked]")
+  end
+
+  test "a stale rename surfaces the lock_version error in the modal", %{conn: conn} do
+    application = application_fixture()
+    key = api_key_fixture(application)
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    lv |> element("#rename-key-#{key.id}") |> render_click()
+
+    {:ok, _} = Applications.rename_api_key(key.id, "concurrent rename")
+
+    lv
+    |> form("#rename-key-form", rename_key: %{"name" => "stale write"})
+    |> render_submit()
+
+    assert has_element?(lv, "#rename-key-modal", "is stale")
+    assert Applications.get_api_key!(key.id).name == "concurrent rename"
+  end
+
+  test "a stale toggle surfaces a flash error", %{conn: conn} do
+    application = application_fixture()
+    key = api_key_fixture(application)
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    {:ok, _} = Applications.edit_api_key_description(key.id, "changed")
+
+    lv |> element("#enabled-key-#{key.id}") |> render_click()
+
+    assert render(lv) =~ "The enabled flag cannot be changed"
+    assert Applications.get_api_key!(key.id).enabled == true
+  end
+
+  test "the API KEY column shows the key prefix with a copy control",
+       %{conn: conn} do
+    application = application_fixture()
+    key = api_key_fixture(application)
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    assert key.prefix =~ ~r/^aak_[0-9a-f-]{36}$/
+    assert has_element?(lv, "#api-key-row-#{key.id} td", key.prefix)
+    assert has_element?(lv, "#api-key-prefix-value-#{key.id}.hidden", key.prefix)
+
+    assert has_element?(
+             lv,
+             ~s|#copy-api-key-prefix-#{key.id}[onclick*="navigator.clipboard.writeText"]|
+           )
+  end
+
+  test "the keys table scrolls horizontally inside its container", %{conn: conn} do
+    application = application_fixture()
+    _key = api_key_fixture(application)
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    assert has_element?(lv, "#api-keys-section .overflow-x-auto #api-keys-table")
+  end
+
+  test "has no whole-row edit form and no delete control", %{conn: conn} do
+    application = application_fixture()
+    key = api_key_fixture(application)
+
+    {:ok, lv, _html} =
+      live(
+        conn,
+        "/stream-server-admin/api-keys?application_id=#{application.id}"
+      )
+
+    refute has_element?(lv, "#edit-key-#{key.id}")
+    refute has_element?(lv, "#delete-key-#{key.id}")
+    refute has_element?(lv, "#edit-api-key-#{key.id}")
+    refute has_element?(lv, "#delete-api-key-#{key.id}")
   end
 end
