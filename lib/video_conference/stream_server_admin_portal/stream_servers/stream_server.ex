@@ -37,14 +37,14 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
   @doc """
   A stream server changeset.
 
-  Requires a `name` and a unique `host` when one is given, and
+  Requires a `name` and a unique `host`, and
   restricts `country` to the supported ISO alpha-2 codes in
   `Countries`. `description`, `settings`, and `cert_hash` are optional.
   """
   def changeset(%__MODULE__{} = stream_server, attrs) do
     stream_server
     |> cast(attrs, [:name, :description, :host, :country, :settings, :cert_hash])
-    |> validate_required([:name])
+    |> validate_required([:name, :host])
     |> validate_inclusion(:country, Countries.codes())
     |> unsafe_validate_unique(:host, Repo)
     |> unique_constraint(:host)

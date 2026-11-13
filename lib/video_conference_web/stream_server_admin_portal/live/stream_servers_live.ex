@@ -388,6 +388,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLive do
                 field={@form[:host]}
                 label="Host"
                 placeholder="ip, domain, or ip:port"
+                required
                 autocomplete="off"
               />
               <.live_component

@@ -85,9 +85,11 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
   def unique_stream_server_name, do: "stream-server-#{System.unique_integer([:positive])}"
 
   def stream_server_fixture(attrs \\ %{}) do
+    name = unique_stream_server_name()
+
     {:ok, %StreamServer{} = stream_server} =
       attrs
-      |> Enum.into(%{"name" => unique_stream_server_name()})
+      |> Enum.into(%{"name" => name, "host" => "#{name}.example.test"})
       |> StreamServers.create_stream_server()
 
     stream_server

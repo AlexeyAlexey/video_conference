@@ -230,6 +230,20 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLiveTest do
     assert has_element?(lv, "#stream-server-form p.text-error", "can't be blank")
   end
 
+  test "shows an inline error on a blank host", %{conn: conn} do
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/stream-servers/new")
+
+    lv
+    |> form("#stream-server-form",
+      stream_server: %{"name" => "no host", "host" => ""}
+    )
+    |> render_submit()
+
+    assert has_element?(lv, "#stream-server-form p.text-error", "can't be blank")
+    refute has_element?(lv, "tr[id^=stream-server-row-]", "no host")
+    assert Enum.find(StreamServers.list_stream_servers(), &(&1.name == "no host")) == nil
+  end
+
   test "adds a stream server with a name another server already has", %{conn: conn} do
     _server = stream_server_fixture(%{"name" => "taken"})
     {:ok, lv, _html} = live(conn, "/stream-server-admin/stream-servers/new")

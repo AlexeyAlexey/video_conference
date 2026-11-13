@@ -100,11 +100,23 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
       assert %{name: ["can't be blank"]} = errors_on(changeset)
     end
 
+    test "requires a host" do
+      for attrs <- [%{"name" => "n"}, %{"name" => "n", "host" => ""}] do
+        {:error, changeset} = StreamServers.create_stream_server(attrs)
+        assert %{host: ["can't be blank"]} = errors_on(changeset)
+      end
+
+      assert StreamServers.list_stream_servers() == []
+    end
+
     test "allows two stream servers to share a name" do
       stream_server = stream_server_fixture(%{"name" => "shared"})
 
       {:ok, %StreamServer{} = other} =
-        StreamServers.create_stream_server(%{"name" => "shared"})
+        StreamServers.create_stream_server(%{
+          "name" => "shared",
+          "host" => "shared-2.example.test"
+        })
 
       assert other.name == stream_server.name
       assert other.id != stream_server.id
