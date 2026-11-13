@@ -12,10 +12,10 @@ which applications each server is assigned to.
 
 The system SHALL persist each portal stream server with a UUID primary
 key, a unique non-empty `name`, an optional `description`, a unique
-`host` address string (ip, domain, or ip:port) that is immutable after
-creation, an optional `country` location code, an optional `settings`
-map defaulting to an empty map, an optional `cert_hash`, and a
-`lock_version` integer defaulting to 1.
+non-empty `host` address string (ip, domain, or ip:port) that is
+required at creation and immutable after creation, an optional `country`
+location code, an optional `settings` map defaulting to an empty map, an
+optional `cert_hash`, and a `lock_version` integer defaulting to 1.
 
 #### Scenario: Creating a stream server
 
@@ -34,6 +34,13 @@ map defaulting to an empty map, an optional `cert_hash`, and a
 - **WHEN** a portal admin creates a stream server using a host that
   another portal stream server already has
 - **THEN** the change is rejected with a validation error
+
+#### Scenario: Missing host rejected
+
+- **WHEN** a portal admin creates a stream server without a host or
+  with a blank host
+- **THEN** the change is rejected with a validation error and no server
+  is persisted
 
 #### Scenario: Host cannot be changed after creation
 
@@ -140,7 +147,8 @@ redirected to the portal sign-in page.
 ### Requirement: Portal stream server management
 
 An authenticated portal admin SHALL be able to add, edit, and remove
-portal stream servers from the list page. Each editable field — name,
+portal stream servers from the list page. The new stream server form
+SHALL require a `name` and a `host`. Each editable field — name,
 description, country, and certificate hash — SHALL be edited through
 its own modal opened from the row. Validation errors SHALL be shown
 inline.
@@ -150,6 +158,13 @@ inline.
 - **WHEN** a portal admin submits the new stream server form with valid
   data
 - **THEN** the server is created and shown in the list
+
+#### Scenario: Adding a stream server without a host
+
+- **WHEN** a portal admin submits the new stream server form with a
+  blank host
+- **THEN** the form is re-rendered with an inline validation error on
+  the host field and no server is created
 
 #### Scenario: Editing a stream server
 
