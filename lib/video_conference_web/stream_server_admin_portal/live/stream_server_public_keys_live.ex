@@ -2,7 +2,12 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
   use VideoConferenceWeb, :live_view
 
   alias VideoConference.StreamServerAdminPortal.Applications
-  alias VideoConference.StreamServerAdminPortal.Applications.StreamServerPublicKey
+
+  alias VideoConference.StreamServerAdminPortal.Applications.{
+    Application,
+    StreamServerPublicKey
+  }
+
   alias VideoConferenceWeb.DropdownComponent
 
   def mount(_params, _session, socket) do
@@ -16,63 +21,65 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
   end
 
   def handle_params(params, _uri, socket) do
-    application_filter = params["application_id"] || ""
+    applications = Applications.list_applications()
+
+    application =
+      Enum.find(applications, &(&1.id == params["application_id"]))
 
     socket =
       socket
-      |> assign(:filter_applications, Applications.list_applications())
-      |> assign(:application_filter, application_filter)
-      |> assign(:filter_form, filter_form(application_filter))
+      |> assign(:application, application)
       |> assign(
-        :applications,
-        Applications.list_applications_with_stream_server_public_keys(
-          application_id: application_filter
-        )
+        :filter_form,
+        to_form(%{"application_id" => selected_id(application)}, as: :filter)
       )
-      |> apply_action(socket.assigns.live_action, params)
+      |> assign(:public_keys, public_keys(application))
 
     {:noreply, socket}
   end
 
-  defp filter_form(application_filter) do
-    to_form(%{"application_id" => application_filter}, as: :filter)
-  end
+  defp selected_id(nil), do: ""
+  defp selected_id(%Application{} = application), do: application.id
 
-  defp apply_action(socket, :index, _params) do
-    assign(socket,
-      page_title: "Stream Server Public Keys",
-      stream_server_public_key: nil,
-      form: nil
-    )
-  end
+  defp public_keys(nil), do: []
 
-  defp apply_action(socket, :new, _params) do
-    key = %StreamServerPublicKey{}
+  defp public_keys(%Application{} = application),
+    do: Applications.list_stream_server_public_keys(application.id)
 
-    socket
-    |> assign(page_title: "Add Stream Server Public Key", stream_server_public_key: key)
-    |> assign_form(Applications.change_stream_server_public_key(key))
+  def handle_event("open-add-modal", _params, socket) do
+    {:noreply,
+     assign(socket,
+       modal: :add,
+       modal_key: nil,
+       modal_form:
+         to_form(
+           Applications.change_stream_server_public_key(%StreamServerPublicKey{enabled: true})
+         )
+     )}
   end
 
   def handle_event("validate", %{"stream_server_public_key" => key_params}, socket) do
     changeset =
-      socket.assigns.stream_server_public_key
+      %StreamServerPublicKey{}
       |> Applications.change_stream_server_public_key(key_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply, assign(socket, :modal_form, to_form(changeset))}
   end
 
   def handle_event("save", %{"stream_server_public_key" => key_params}, socket) do
-    case Applications.create_stream_server_public_key(key_params) do
+    attrs = Map.put(key_params, "application_id", socket.assigns.application.id)
+
+    case Applications.create_stream_server_public_key(attrs) do
       {:ok, _key} ->
         {:noreply,
          socket
          |> put_flash(:info, "Stream server public key added")
-         |> push_patch(to: index_path(socket.assigns.application_filter))}
+         |> close_modal()
+         |> assign_public_keys()}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign_form(socket, changeset)}
+        {:noreply, assign(socket, :modal_form, to_form(changeset))}
     end
   end
 
@@ -84,7 +91,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
         {:noreply,
          socket
          |> put_flash(:info, "Stream server public key removed")
-         |> assign_applications()}
+         |> assign_public_keys()}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "The stream server public key cannot be removed")}
@@ -99,7 +106,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
 
     case result do
       {:ok, _key} ->
-        {:noreply, assign_applications(socket)}
+        {:noreply, assign_public_keys(socket)}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "The enabled flag cannot be changed")}
@@ -152,7 +159,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
          socket
          |> put_flash(:info, "Stream server public key renamed")
          |> close_modal()
-         |> assign_applications()}
+         |> assign_public_keys()}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :modal_form, to_form(changeset, as: :rename_key))}
@@ -173,7 +180,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
          socket
          |> put_flash(:info, "Stream server public key description updated")
          |> close_modal()
-         |> assign_applications()}
+         |> assign_public_keys()}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, assign(socket, :modal_form, to_form(changeset, as: :key_description))}
@@ -194,21 +201,12 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
          socket
          |> put_flash(:info, "Stream server public key application changed")
          |> close_modal()
-         |> assign_applications()}
+         |> assign_public_keys()}
 
       {:error, _changeset} ->
         {:noreply,
          put_flash(socket, :error, "The stream server public key application cannot be changed")}
     end
-  end
-
-  def handle_info({:application_picked, id}, socket) do
-    changeset =
-      socket.assigns.form.source
-      |> Ecto.Changeset.put_change(:application_id, id)
-      |> Map.update!(:errors, &Keyword.delete(&1, :application_id))
-
-    {:noreply, assign_form(socket, changeset)}
   end
 
   def handle_info({:change_app_picked, application_id}, socket) do
@@ -236,28 +234,25 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
     assign(socket, modal: nil, modal_key: nil, modal_form: nil)
   end
 
-  defp assign_applications(socket) do
-    assign(socket,
-      applications:
-        Applications.list_applications_with_stream_server_public_keys(
-          application_id: socket.assigns.application_filter
-        )
-    )
+  defp assign_public_keys(socket) do
+    assign(socket, :public_keys, public_keys(socket.assigns.application))
   end
 
-  defp assign_form(socket, %Ecto.Changeset{} = changeset) do
-    assign(socket, :form, to_form(changeset))
-  end
-
-  defp index_path(application_filter) when application_filter in [nil, ""],
+  defp index_path(application_id) when application_id in [nil, ""],
     do: "/stream-server-admin/applications/stream-server-public-keys"
 
-  defp index_path(application_filter),
+  defp index_path(application_id),
     do:
-      "/stream-server-admin/applications/stream-server-public-keys?application_id=#{application_filter}"
+      "/stream-server-admin/applications/stream-server-public-keys?application_id=#{application_id}"
 
-  defp filter_query(application_filter) when application_filter in [nil, ""], do: ""
-  defp filter_query(application_filter), do: "?application_id=#{application_filter}"
+  defp application_options(query) do
+    for application <- Applications.list_applications(search: query),
+        do: {application.name, application.id}
+  end
+
+  defp lock_version_error(form) do
+    for {:lock_version, {msg, _opts}} <- form.errors, do: msg
+  end
 
   defp description_long?(description) when is_binary(description),
     do: String.length(description) > 50
@@ -306,17 +301,14 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
           Stream Server Public Keys
           <:subtitle>Stream server public keys registered for each application</:subtitle>
           <:actions>
-            <.link
-              :if={@live_action == :index}
-              patch={
-                "/stream-server-admin/applications/stream-server-public-keys/new" <>
-                  filter_query(@application_filter)
-              }
-              id="add-key-link"
+            <.button
+              :if={@application}
+              id="add-key"
+              phx-click="open-add-modal"
               class="btn btn-primary btn-sm"
             >
               Add key
-            </.link>
+            </.button>
           </:actions>
         </.header>
 
@@ -327,7 +319,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
           when a participant connects (audio/video/events).
         </p>
 
-        <div :if={@live_action == :index} class="mb-4 max-w-xs">
+        <div class="mb-4 max-w-xs">
           <.form
             for={@filter_form}
             id="application-filter-form"
@@ -336,12 +328,10 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
             <.live_component
               module={DropdownComponent}
               id="application-filter"
-              label="Filter by application"
+              label="Application"
               field={@filter_form[:application_id]}
-              options={
-                for application <- @filter_applications, do: {application.name, application.id}
-              }
-              empty_label="All applications"
+              options={&application_options/1}
+              placeholder="Choose an application"
               searchable
               search_placeholder="Type to filter applications"
               value_key="id"
@@ -350,99 +340,16 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
           </.form>
         </div>
 
-        <div
-          :if={@live_action == :new}
-          id="key-form-card"
-          class="card bg-base-200 mb-6"
-        >
-          <div class="card-body">
-            <h2 class="card-title">
-              Add stream server public key
-            </h2>
-            <.form
-              for={@form}
-              id="key-form"
-              phx-change="validate"
-              phx-submit="save"
-              class="space-y-2"
-              autocomplete="off"
-              novalidate
-            >
-              <.input field={@form[:name]} label="Name" autocomplete="off" />
-              <.live_component
-                module={DropdownComponent}
-                id="application"
-                label="Application"
-                field={@form[:application_id]}
-                options={
-                  for application <- @filter_applications, do: {application.name, application.id}
-                }
-                placeholder="Choose an application"
-                value_key="id"
-                on_change={fn id -> send(self(), {:application_picked, id}) end}
-              />
-              <.input
-                field={@form[:key]}
-                type="textarea"
-                label="Key"
-                autocomplete="off"
-              />
-              <.input
-                field={@form[:enabled]}
-                type="checkbox"
-                label="Enabled"
-              />
-              <.input
-                field={@form[:description]}
-                type="textarea"
-                label="Description"
-                autocomplete="off"
-              />
-              <div class="flex gap-2 pt-2">
-                <.button class="btn btn-primary" phx-disable-with="Saving...">
-                  Save
-                </.button>
-                <.link
-                  patch={index_path(@application_filter)}
-                  id="cancel-key-form"
-                  class="btn btn-ghost"
-                >
-                  Cancel
-                </.link>
-              </div>
-            </.form>
-          </div>
-        </div>
-
-        <p
-          :if={@live_action == :index and @applications == []}
-          id="no-applications"
-          class="py-8 text-center"
-        >
-          No applications found
+        <p :if={@application == nil} id="select-application-prompt" class="py-8 text-center">
+          Select an application to manage its stream server public keys
         </p>
 
-        <div
-          :for={application <- @applications}
-          :if={@live_action == :index}
-          id={"application-group-#{application.id}"}
-          class="mb-6"
-        >
-          <h3 class="mb-2 text-lg font-semibold">
-            {application.name}
-            <span :if={not application.enabled} class="text-sm font-normal opacity-60">
-              disabled
-            </span>
-          </h3>
-          <p
-            :if={application.stream_server_public_keys == []}
-            id={"no-keys-#{application.id}"}
-            class="text-sm opacity-60"
-          >
+        <div :if={@application} id="public-keys-section">
+          <p :if={@public_keys == []} id="no-public-keys" class="py-8 text-center">
             No stream server public keys yet
           </p>
-          <div :if={application.stream_server_public_keys != []} class="overflow-x-auto">
-            <table id={"keys-table-#{application.id}"} class="table table-sm sm:table-md">
+          <div :if={@public_keys != []} class="overflow-x-auto">
+            <table id="public-keys-table" class="table table-sm sm:table-md">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -454,10 +361,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  :for={key <- application.stream_server_public_keys}
-                  id={"key-row-#{key.id}"}
-                >
+                <tr :for={key <- @public_keys} id={"key-row-#{key.id}"}>
                   <td class="whitespace-nowrap">
                     {key.name}
                     <button
@@ -554,20 +458,32 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
                     />
                   </td>
                   <td class="text-right whitespace-nowrap">
-                    <details class="dropdown dropdown-end" id={"key-actions-#{key.id}"}>
-                      <summary class="btn btn-ghost btn-xs btn-square" title="Key actions">
+                    <div id={"key-actions-#{key.id}"} class="inline-block">
+                      <button
+                        type="button"
+                        popovertarget={"key-actions-menu-#{key.id}"}
+                        style={"anchor-name:--key-actions-#{key.id}"}
+                        class="btn btn-ghost btn-xs btn-square"
+                        title="Key actions"
+                      >
                         <.icon name="hero-ellipsis-vertical" class="size-4" />
-                      </summary>
-                      <ul class="menu dropdown-content z-50 w-36 rounded-box border border-base-300 bg-base-100 p-2 shadow">
+                      </button>
+                      <ul
+                        popover
+                        id={"key-actions-menu-#{key.id}"}
+                        style={
+                          "position-anchor:--key-actions-#{key.id}; position-try-fallbacks: flip-block"
+                        }
+                        class="dropdown dropdown-end menu w-36 rounded-box border border-base-300 bg-base-100 p-2 shadow"
+                      >
                         <li>
                           <button
                             type="button"
                             id={"change-app-#{key.id}"}
-                            phx-click={
-                              JS.push("change-app")
-                              |> JS.remove_attribute("open", to: "#key-actions-#{key.id}")
-                            }
+                            phx-click="change-app"
                             phx-value-id={key.id}
+                            popovertarget={"key-actions-menu-#{key.id}"}
+                            popovertargetaction="hide"
                           >
                             Change app
                           </button>
@@ -579,19 +495,63 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
                             phx-click="delete"
                             phx-value-id={key.id}
                             data-confirm={"Remove #{key.name}?"}
+                            popovertarget={"key-actions-menu-#{key.id}"}
+                            popovertargetaction="hide"
                             class="text-error"
                           >
                             Remove
                           </button>
                         </li>
                       </ul>
-                    </details>
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
+
+        <.modal
+          :if={@modal == :add}
+          id="add-key-modal"
+          title="Add stream server public key"
+        >
+          <p id="add-key-application" class="mb-4 text-sm opacity-70">
+            {@application.name}
+          </p>
+          <.form
+            for={@modal_form}
+            id="key-form"
+            phx-change="validate"
+            phx-submit="save"
+            class="space-y-2"
+            autocomplete="off"
+            novalidate
+          >
+            <.input field={@modal_form[:name]} label="Name" autocomplete="off" />
+            <.input
+              field={@modal_form[:key]}
+              type="textarea"
+              label="Key"
+              autocomplete="off"
+            />
+            <.input
+              field={@modal_form[:description]}
+              type="textarea"
+              label="Description"
+              autocomplete="off"
+            />
+            <.input field={@modal_form[:enabled]} type="checkbox" label="Enabled" />
+            <p :for={msg <- lock_version_error(@modal_form)} class="text-sm text-error">
+              {msg}
+            </p>
+            <div class="modal-action">
+              <.button class="btn btn-primary" phx-disable-with="Saving...">
+                Save
+              </.button>
+            </div>
+          </.form>
+        </.modal>
 
         <.modal :if={@modal == :show_key and @modal_key} id="show-key-modal" title="Public key">
           <code id="show-key-content" class="block break-all whitespace-pre-wrap text-sm">
@@ -619,6 +579,9 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
             novalidate
           >
             <.input field={@modal_form[:name]} label="Name" autocomplete="off" />
+            <p :for={msg <- lock_version_error(@modal_form)} class="text-sm text-error">
+              {msg}
+            </p>
             <div class="modal-action">
               <.button class="btn btn-primary" phx-disable-with="Saving...">Save</.button>
             </div>
@@ -643,6 +606,9 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
               label="Description"
               autocomplete="off"
             />
+            <p :for={msg <- lock_version_error(@modal_form)} class="text-sm text-error">
+              {msg}
+            </p>
             <div class="modal-action">
               <.button class="btn btn-primary" phx-disable-with="Saving...">Save</.button>
             </div>
@@ -666,9 +632,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
               id="change-app"
               label="Application"
               field={@modal_form[:application_id]}
-              options={
-                for application <- @filter_applications, do: {application.name, application.id}
-              }
+              options={&application_options/1}
               placeholder="Choose an application"
               searchable
               search_placeholder="Type to filter applications"

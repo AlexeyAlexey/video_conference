@@ -57,29 +57,6 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
-  Returns all applications ordered by name, each with its public stream
-  server keys preloaded (ordered by name). Used by the grouped public
-  keys portal page.
-
-  Options:
-
-    * `:application_id` — limits the list to the given application.
-      `nil` or `""` lists every application.
-  """
-  def list_applications_with_stream_server_public_keys(opts \\ []) do
-    keys = from k in StreamServerPublicKey, order_by: [asc: k.name]
-
-    Application
-    |> filter_by_id(Keyword.get(opts, :application_id))
-    |> order_by([a], asc: a.name)
-    |> preload(stream_server_public_keys: ^keys)
-    |> Repo.all()
-  end
-
-  defp filter_by_id(query, application_id) when application_id in [nil, ""], do: query
-  defp filter_by_id(query, application_id), do: from(a in query, where: a.id == ^application_id)
-
-  @doc """
   Gets a single application.
 
   Raises `Ecto.NoResultsError` if the application does not exist.
@@ -322,6 +299,18 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   ## Stream server public keys
+
+  @doc """
+  Returns the stream server public keys of the given application,
+  ordered by name.
+  """
+  def list_stream_server_public_keys(application_id) do
+    Repo.all(
+      from k in StreamServerPublicKey,
+        where: k.application_id == ^application_id,
+        order_by: [asc: k.name]
+    )
+  end
 
   @doc """
   Gets a single stream server public key.

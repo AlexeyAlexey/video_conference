@@ -1100,50 +1100,29 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
-  describe "list_applications_with_stream_server_public_keys/1" do
-    test "preloads each application's stream server public keys ordered by name" do
+  describe "list_stream_server_public_keys/1" do
+    test "returns only the given application's keys ordered by name" do
       application = application_fixture()
-      _key_b = stream_server_public_key_fixture(application, %{"name" => "b-key"})
-      key_a = stream_server_public_key_fixture(application, %{"name" => "a-key"})
+      b_key = stream_server_public_key_fixture(application, %{"name" => "b-key"})
+      a_key = stream_server_public_key_fixture(application, %{"name" => "a-key"})
+      _other = stream_server_public_key_fixture(application_fixture())
 
-      loaded =
-        Applications.list_applications_with_stream_server_public_keys()
-        |> Enum.find(&(&1.id == application.id))
+      keys = Applications.list_stream_server_public_keys(application.id)
 
-      assert [%StreamServerPublicKey{name: "a-key"}, %StreamServerPublicKey{name: "b-key"}] =
-               loaded.stream_server_public_keys
-
-      assert hd(loaded.stream_server_public_keys).id == key_a.id
+      assert Enum.map(keys, & &1.id) == [a_key.id, b_key.id]
     end
 
-    test "filters to a single application" do
+    test "returns an empty list for an application with no keys" do
       application = application_fixture()
-      other = application_fixture()
-      key = stream_server_public_key_fixture(application)
-      _other_key = stream_server_public_key_fixture(other)
+      _other = stream_server_public_key_fixture(application_fixture())
 
-      loaded =
-        Applications.list_applications_with_stream_server_public_keys(
-          application_id: application.id
-        )
-
-      assert [%Application{id: id}] = loaded
-      assert id == application.id
-      assert [%StreamServerPublicKey{id: key_id}] = hd(loaded).stream_server_public_keys
-      assert key_id == key.id
+      assert Applications.list_stream_server_public_keys(application.id) == []
     end
 
-    test "nil and empty filter list every application" do
-      application = application_fixture()
-      _key = stream_server_public_key_fixture(application)
+    test "returns an empty list for an unknown application id" do
+      _key = stream_server_public_key_fixture(application_fixture())
 
-      assert Applications.list_applications_with_stream_server_public_keys() != []
-
-      assert Enum.map(
-               Applications.list_applications_with_stream_server_public_keys(application_id: ""),
-               & &1.id
-             ) ==
-               Enum.map(Applications.list_applications_with_stream_server_public_keys(), & &1.id)
+      assert Applications.list_stream_server_public_keys(Ecto.UUID.generate()) == []
     end
   end
 end
