@@ -64,6 +64,16 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
     api_key
   end
 
+  @doc """
+  Returns `{api_key, plaintext_secret}` — the secret is only available
+  at creation time, so callers that authenticate with it need this
+  pair.
+  """
+  def api_key_with_secret_fixture(%Application{} = application, attrs \\ %{}) do
+    api_key = api_key_fixture(application, attrs)
+    {api_key, api_key.plaintext_key}
+  end
+
   def unique_stream_server_public_key_name,
     do: "key-#{System.unique_integer([:positive])}"
 
@@ -107,5 +117,15 @@ defmodule VideoConference.StreamServerAdminPortalFixtures do
       |> StreamServers.create_stream_server_api_key()
 
     api_key
+  end
+
+  @doc """
+  Returns `{api_key, plaintext_secret}` — the secret is only available
+  at creation time, so callers that authenticate with it need this
+  pair.
+  """
+  def stream_server_api_key_with_secret_fixture(%StreamServer{} = stream_server, attrs \\ %{}) do
+    api_key = stream_server_api_key_fixture(stream_server, attrs)
+    {api_key, api_key.plaintext_key}
   end
 end

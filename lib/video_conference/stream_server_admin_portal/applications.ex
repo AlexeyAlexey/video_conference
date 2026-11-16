@@ -215,6 +215,18 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   def get_api_key!(id), do: Repo.get!(ApiKey, id)
 
   @doc """
+  Gets a single API key by its stored `prefix` (`"aak_" <> prefix_id`),
+  returning `{:error, :not_found}` when no key carries the prefix.
+  Disabled keys are returned — rejecting them is the caller's job.
+  """
+  def get_api_key_by_prefix(prefix) when is_binary(prefix) do
+    case Repo.get_by(ApiKey, prefix: prefix) do
+      nil -> {:error, :not_found}
+      api_key -> {:ok, api_key}
+    end
+  end
+
+  @doc """
   Creates an API key with a freshly generated secret.
 
   Returns `{:ok, api_key}` where `api_key.plaintext_key` holds the
@@ -317,6 +329,31 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   Raises `Ecto.NoResultsError` if the key does not exist.
   """
   def get_stream_server_public_key!(id), do: Repo.get!(StreamServerPublicKey, id)
+
+  @doc """
+  Returns whether an enabled application with the given id exists.
+  """
+  def enabled_application?(application_id) do
+    Repo.exists?(from a in Application, where: a.id == ^application_id and a.enabled)
+  end
+
+  @doc """
+  Gets an enabled stream server public key by id belonging to the
+  given application.
+
+  Returns `{:error, :not_found}` when the key does not exist, is
+  disabled, or belongs to a different application — the caller cannot
+  distinguish these cases.
+  """
+  def get_enabled_stream_server_public_key(application_id, public_key_id) do
+    case Repo.one(
+           from k in StreamServerPublicKey,
+             where: k.id == ^public_key_id and k.application_id == ^application_id and k.enabled
+         ) do
+      nil -> {:error, :not_found}
+      key -> {:ok, key}
+    end
+  end
 
   @doc """
   Creates a stream server public key holding existing public key

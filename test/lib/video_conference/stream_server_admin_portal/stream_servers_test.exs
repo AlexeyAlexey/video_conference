@@ -604,6 +604,30 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
     end
   end
 
+  describe "get_stream_server_api_key_by_prefix/1" do
+    test "returns the key carrying the prefix" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+
+      assert {:ok, %ApiKey{} = found} =
+               StreamServers.get_stream_server_api_key_by_prefix(key.prefix)
+
+      assert found.id == key.id
+    end
+
+    test "returns {:error, :not_found} when no key carries the prefix" do
+      assert StreamServers.get_stream_server_api_key_by_prefix("ssak_" <> Ecto.UUID.generate()) ==
+               {:error, :not_found}
+    end
+
+    test "returns a disabled key" do
+      key = stream_server_api_key_fixture(stream_server_fixture())
+      {:ok, key} = StreamServers.disable_stream_server_api_key(key.id)
+
+      assert {:ok, %ApiKey{enabled: false}} =
+               StreamServers.get_stream_server_api_key_by_prefix(key.prefix)
+    end
+  end
+
   describe "create_stream_server_api_key/1" do
     test "creates a key with defaults and returns the plaintext secret once" do
       stream_server = stream_server_fixture()

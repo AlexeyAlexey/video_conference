@@ -3,6 +3,8 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
 
   import VideoConferenceWeb.StreamServerAdminPortal.AdminAuth
 
+  alias VideoConferenceWeb.StreamServerAdminPortal.ApiKeyAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -11,6 +13,16 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug :fetch_current_scope_for_admin
+  end
+
+  pipeline :api do
+    plug :accepts, ["json"]
+  end
+
+  scope "/", VideoConferenceWeb.StreamServerAdminPortal do
+    pipe_through [:api, ApiKeyAuth]
+
+    get "/api/stream-server/public-key", PublicKeyController, :show
   end
 
   scope "/", VideoConferenceWeb.StreamServerAdminPortal do

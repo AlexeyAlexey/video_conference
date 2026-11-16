@@ -229,6 +229,19 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
     {:ok, get_stream_server!(stream_server_id)}
   end
 
+  @doc """
+  Returns whether the stream server is assigned to the application via
+  `application_stream_servers`.
+  """
+  def assigned_to_application?(stream_server_id, application_id) do
+    Repo.exists?(
+      from j in ApplicationStreamServer,
+        where:
+          j.stream_server_id == ^stream_server_id and
+            j.application_id == ^application_id
+    )
+  end
+
   defp lock_bump_changeset(%StreamServer{} = stream_server) do
     stream_server
     |> Ecto.Changeset.change()
@@ -261,6 +274,19 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   Raises `Ecto.NoResultsError` if the key does not exist.
   """
   def get_stream_server_api_key!(id), do: Repo.get!(ApiKey, id)
+
+  @doc """
+  Gets a single stream server API key by its stored `prefix`
+  (`"ssak_" <> prefix_id`), returning `{:error, :not_found}` when no
+  key carries the prefix. Disabled keys are returned — rejecting them
+  is the caller's job.
+  """
+  def get_stream_server_api_key_by_prefix(prefix) when is_binary(prefix) do
+    case Repo.get_by(ApiKey, prefix: prefix) do
+      nil -> {:error, :not_found}
+      api_key -> {:ok, api_key}
+    end
+  end
 
   @doc """
   Creates a stream server API key with a freshly generated secret.

@@ -420,6 +420,27 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
+  describe "get_api_key_by_prefix/1" do
+    test "returns the key carrying the prefix" do
+      key = api_key_fixture(application_fixture())
+
+      assert {:ok, %ApiKey{} = found} = Applications.get_api_key_by_prefix(key.prefix)
+      assert found.id == key.id
+    end
+
+    test "returns {:error, :not_found} when no key carries the prefix" do
+      assert Applications.get_api_key_by_prefix("aak_" <> Ecto.UUID.generate()) ==
+               {:error, :not_found}
+    end
+
+    test "returns a disabled key" do
+      key = api_key_fixture(application_fixture())
+      {:ok, key} = Applications.disable_api_key(key.id)
+
+      assert {:ok, %ApiKey{enabled: false}} = Applications.get_api_key_by_prefix(key.prefix)
+    end
+  end
+
   describe "api key field updates" do
     test "rename, description edit, and enable/disable bump lock_version" do
       key = api_key_fixture(application_fixture())
