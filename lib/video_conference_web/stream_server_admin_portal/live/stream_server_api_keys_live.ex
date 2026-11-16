@@ -18,10 +18,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerApiKeysLive do
   end
 
   def handle_params(params, _uri, socket) do
-    stream_servers = StreamServers.list_stream_servers()
-
-    stream_server =
-      Enum.find(stream_servers, &(&1.id == params["stream_server_id"]))
+    stream_server = stream_server(params["stream_server_id"])
 
     socket =
       socket
@@ -34,6 +31,9 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerApiKeysLive do
 
     {:noreply, socket}
   end
+
+  defp stream_server(id) when id in [nil, ""], do: nil
+  defp stream_server(id), do: StreamServers.get_stream_server!(id)
 
   defp selected_id(nil), do: ""
   defp selected_id(%StreamServer{} = stream_server), do: stream_server.id

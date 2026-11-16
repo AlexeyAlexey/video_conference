@@ -53,6 +53,10 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
            StreamServerPublicKeysLive,
            :index
 
+      live "/applications/stream-servers",
+           ApplicationStreamServersLive,
+           :index
+
       live "/api-keys", ApiKeysLive, :index
       live "/stream-servers", StreamServersLive, :index
       live "/stream-servers/new", StreamServersLive, :new
@@ -67,6 +71,10 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
 
       live "/stream-server-admin/applications/stream-server-public-keys",
            StreamServerPublicKeysLive,
+           :index
+
+      live "/stream-server-admin/applications/stream-servers",
+           ApplicationStreamServersLive,
            :index
 
       live "/stream-server-admin/api-keys", ApiKeysLive, :index

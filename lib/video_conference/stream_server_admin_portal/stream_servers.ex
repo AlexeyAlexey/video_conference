@@ -37,6 +37,10 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
     * `:search` — limits the list to servers whose `name` or `host`
       contains the given text (case-insensitive substring match). `nil`
       or `""` lists every server.
+
+    * `:page` — together with `:per_page`, returns only that page of
+      results. Both must be positive integers; otherwise the full
+      filtered list is returned.
   """
   def list_stream_servers(opts \\ []) do
     applications = from a in Application, order_by: [asc: a.name]
@@ -45,9 +49,30 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
     |> filter_by_application(Keyword.get(opts, :application_id))
     |> filter_by_search(Keyword.get(opts, :search))
     |> order_by([s], asc: s.name)
+    |> paginate(Keyword.get(opts, :page), Keyword.get(opts, :per_page))
     |> preload(applications: ^applications)
     |> Repo.all()
   end
+
+  @doc """
+  Returns the number of stream servers matching the `:application_id`
+  and `:search` filters accepted by `list_stream_servers/1`.
+  """
+  def count_stream_servers(opts \\ []) do
+    StreamServer
+    |> filter_by_application(Keyword.get(opts, :application_id))
+    |> filter_by_search(Keyword.get(opts, :search))
+    |> Repo.aggregate(:count)
+  end
+
+  defp paginate(query, page, per_page)
+       when is_integer(page) and is_integer(per_page) and page > 0 and per_page > 0 do
+    query
+    |> offset(^((page - 1) * per_page))
+    |> limit(^per_page)
+  end
+
+  defp paginate(query, _page, _per_page), do: query
 
   defp filter_by_search(query, search) when search in [nil, ""], do: query
 

@@ -21,10 +21,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
   end
 
   def handle_params(params, _uri, socket) do
-    applications = Applications.list_applications()
-
-    application =
-      Enum.find(applications, &(&1.id == params["application_id"]))
+    application = application(params["application_id"])
 
     socket =
       socket
@@ -37,6 +34,9 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServerPublicKeysLive 
 
     {:noreply, socket}
   end
+
+  defp application(id) when id in [nil, ""], do: nil
+  defp application(id), do: Applications.get_application!(id)
 
   defp selected_id(nil), do: ""
   defp selected_id(%Application{} = application), do: application.id
