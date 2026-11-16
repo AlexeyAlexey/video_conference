@@ -118,22 +118,45 @@ created key's `id` as its `stream_id`, and its `application_id`,
 - **WHEN** the event append fails while a key is being created
 - **THEN** the key is not persisted
 
-### Requirement: Portal stream server public keys admin list
+### Requirement: Portal stream server public keys page and required application selection
 
 An authenticated portal admin SHALL be able to open a page at
-`/stream-server-admin/applications/stream-server-public-keys` listing
-stream server public keys grouped by portal application, with a
-description explaining that each key's id is the key id that identifies
-which key verifies the application's signed JWT. Unauthenticated
-visitors SHALL be redirected to the portal sign-in page.
+`/stream-server-admin/applications/stream-server-public-keys` for
+managing stream server public keys. The page SHALL offer a required
+application selection whose searchable options are the application
+names. There SHALL be no option to select all applications; until an
+application is chosen the page SHALL prompt the admin to pick one and
+SHALL NOT list keys or offer adding a key. The chosen application SHALL
+be reflected in the page URL.
 
-#### Scenario: List groups keys by application
+#### Scenario: Prompt before an application is picked
 
-- **WHEN** an authenticated portal admin opens
-  `/stream-server-admin/applications/stream-server-public-keys`
-- **THEN** each portal application's keys are listed under that
-  application with name, key id, public key, description, and enabled
-  columns
+- **WHEN** an admin opens the page with no application selected
+- **THEN** the page shows a prompt to select an application, lists no
+  keys, and the add action is unavailable
+
+#### Scenario: Keys listed for the selected application
+
+- **WHEN** an admin picks an application in the selection control
+- **THEN** the page lists that application's keys with name, key id,
+  public key, description, and enabled columns, and the URL carries the
+  chosen application id
+
+#### Scenario: Application preselected from the URL
+
+- **WHEN** an admin opens the page with an application id in the URL
+- **THEN** that application is selected and its keys are listed
+
+#### Scenario: No all-applications option
+
+- **WHEN** an admin opens the selection control
+- **THEN** no option to list every application's keys is offered
+
+#### Scenario: Searching selection options
+
+- **WHEN** an admin types in the selection control's search field
+- **THEN** only applications matching the search text are offered for
+  selection
 
 #### Scenario: Public key content is hidden behind a show control
 
@@ -195,13 +218,6 @@ visitors SHALL be redirected to the portal sign-in page.
 - **THEN** it wraps inside the column instead of overflowing or
   overlapping other columns
 
-#### Scenario: No applications message
-
-- **WHEN** an authenticated portal admin opens
-  `/stream-server-admin/applications/stream-server-public-keys` and no
-  portal applications exist
-- **THEN** a "No applications found" message is shown
-
 #### Scenario: Unauthenticated access
 
 - **WHEN** a visitor opens
@@ -209,54 +225,29 @@ visitors SHALL be redirected to the portal sign-in page.
   a portal admin session
 - **THEN** they are redirected to the portal sign-in page
 
-### Requirement: Filter stream server public keys by application
+### Requirement: Portal stream server public keys management
 
-The portal stream server public keys page SHALL offer a filter limiting
-the list to a chosen application's keys, including an option for all
-applications. The filter control SHALL offer a search field filtering
-the application options, and the choice SHALL be reflected in the page
-URL.
-
-#### Scenario: Filtering by an application
-
-- **WHEN** a portal admin picks an application in the filter
-- **THEN** only that application's keys are listed
-
-#### Scenario: Clearing the filter
-
-- **WHEN** a portal admin picks the all-applications option in the
-  filter
-- **THEN** every application's keys are listed again
-
-#### Scenario: Searching the filter applications
-
-- **WHEN** a portal admin types in the filter's search field
-- **THEN** only applications matching the search text are offered for
-  selection
-
-### Requirement: Portal stream server public keys admin management
-
-An authenticated portal admin SHALL be able to add and remove stream
-server public keys from the portal page, and to rename a key, edit its
-description, change its application, and toggle its enabled flag through
-per-field controls — there SHALL be no whole-row edit form. The add form
-SHALL offer an application dropdown and accept an existing key.
+An authenticated portal admin SHALL be able to add a stream server
+public key for the selected application through a modal whose form
+shows the application read-only. The admin SHALL rename a key, edit its
+description, change its application, toggle its enabled flag, and
+remove it through per-field controls — no whole-row edit form.
 Validation errors SHALL be shown inline. The page SHALL NOT offer key
-pair generation, SHALL NOT accept private key material, and SHALL NOT
-offer any control that changes an existing key's public key value.
+pair generation, accept private key material, or change an existing
+key's public key value.
 
-#### Scenario: Add a key
+#### Scenario: Adding a key through the modal
 
-- **WHEN** a portal admin submits the add form with an application and
-  an existing key
-- **THEN** the key is persisted and appears in the list with its UUID as
-  the key id
+- **WHEN** an admin with an application selected activates "Add key" and
+  submits a valid form with an existing public key
+- **THEN** the key is persisted under the selected application and
+  appears in the list with its UUID as the key id
 
-#### Scenario: Edit a key
+#### Scenario: Add form shows the selected application
 
-- **WHEN** a portal admin changes a key's name, description,
-  application, or enabled flag through its per-field control
-- **THEN** the updated attribute is persisted and shown in the list
+- **WHEN** an admin opens the add form
+- **THEN** the selected application's name is shown read-only and no
+  application picker is offered
 
 #### Scenario: Rename a key
 
@@ -285,8 +276,8 @@ offer any control that changes an existing key's public key value.
 
 - **WHEN** a portal admin picks "Change app" from a key's row actions
   menu, chooses an application in the modal's dropdown, and confirms
-- **THEN** the key is moved to the chosen application's group in the
-  list
+- **THEN** the key is moved to the chosen application and disappears
+  from the current list
 
 #### Scenario: Remove a key
 
@@ -299,23 +290,22 @@ offer any control that changes an existing key's public key value.
 - **WHEN** a portal admin edits any attribute of an existing key
 - **THEN** the key's stored public key value remains unchanged
 
-#### Scenario: Missing application shows error
+#### Scenario: Missing key shows error
 
-- **WHEN** a portal admin submits the add form without choosing an
-  application
+- **WHEN** a portal admin submits the add form without a public key
 - **THEN** the form shows an inline error and no key is created
 
-### Requirement: Responsive stream server public keys page
+### Requirement: Responsive stream server public keys UI
 
 The portal stream server public keys page SHALL be usable on mobile,
-tablet, and desktop viewports. Data tables SHALL scroll horizontally
-inside their container rather than overflowing the page.
+tablet, and desktop viewports. The data table SHALL scroll horizontally
+inside its container rather than overflowing the page.
 
-#### Scenario: Grouped tables fit narrow screens
+#### Scenario: Table fits narrow screens
 
 - **WHEN** the stream server public keys list is viewed on a narrow
   viewport
-- **THEN** the page does not overflow horizontally and each table
+- **THEN** the page does not overflow horizontally and the table
   scrolls inside its container
 
 #### Scenario: Modals and menus fit narrow screens
