@@ -74,6 +74,26 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLiveTest do
     refute has_element?(lv, "button", "Remove")
   end
 
+  test "shows each server's load as a read-only progress bar", %{conn: conn} do
+    server = stream_server_fixture()
+    {:ok, _} = StreamServers.update_stream_server_load(server.id, 42)
+
+    {:ok, lv, _html} = live(conn, "/stream-server-admin/stream-servers")
+
+    assert has_element?(lv, "#stream-servers-table th", "Load")
+
+    assert has_element?(
+             lv,
+             ~s|progress#server-load-#{server.id}[value="42"][max="100"]|
+           )
+
+    assert has_element?(lv, "#server-load-pct-#{server.id}", "42%")
+
+    # load is read-only: the column offers no edit control
+    refute has_element?(lv, "#edit-load-#{server.id}")
+    refute has_element?(lv, ~s|button[phx-click="edit-load"]|)
+  end
+
   test "the description column truncates long descriptions with an expandable control",
        %{conn: conn} do
     long = String.duplicate("x", 60)

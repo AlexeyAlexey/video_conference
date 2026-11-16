@@ -24,6 +24,7 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
     field :country, :string
     field :settings, :map, default: %{}
     field :cert_hash, :string
+    field :load, :integer, default: 0
     field :lock_version, :integer, default: 1
 
     many_to_many :applications, Application,
@@ -88,5 +89,16 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers.StreamServer do
     stream_server
     |> cast(attrs, [:cert_hash])
     |> optimistic_lock(:lock_version)
+  end
+
+  @doc """
+  A changeset for setting a stream server's current load, an integer
+  from 0 to 100. Load is volatile telemetry: the update is deliberately
+  not guarded by `lock_version`, so last writer wins.
+  """
+  def load_changeset(%__MODULE__{} = stream_server, attrs) do
+    stream_server
+    |> cast(attrs, [:load])
+    |> validate_number(:load, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)
   end
 end

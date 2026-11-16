@@ -172,6 +172,25 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServers do
   end
 
   @doc """
+  Sets a stream server's current `load` (0–100).
+
+  Accepts a stream server id or a loaded `%StreamServer{}` — see
+  `rename_stream_server_api_key/2`. Passing a stale copy still
+  succeeds: load is volatile telemetry, not domain state, so the write
+  is not guarded by `lock_version` (last writer wins) and appends no
+  event.
+  """
+  def update_stream_server_load(server_or_id, load) do
+    server_or_id
+    |> fetch_stream_server()
+    |> StreamServer.load_changeset(%{"load" => load})
+    |> Repo.update()
+  end
+
+  defp fetch_stream_server(%StreamServer{} = stream_server), do: stream_server
+  defp fetch_stream_server(id), do: get_stream_server!(id)
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking stream server changes.
   """
   def change_stream_server(%StreamServer{} = stream_server, attrs \\ %{}) do

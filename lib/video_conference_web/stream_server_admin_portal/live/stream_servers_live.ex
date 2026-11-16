@@ -480,6 +480,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLive do
                 <th>Country</th>
                 <th>Description</th>
                 <th>Cert hash</th>
+                <th>Load</th>
                 <th>Applications</th>
                 <th></th>
               </tr>
@@ -591,6 +592,17 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.StreamServersLive do
                   >
                     <.icon name="hero-pencil" class="size-3.5" />
                   </button>
+                </td>
+                <td class="whitespace-nowrap">
+                  <div class="flex items-center gap-2">
+                    <progress
+                      id={"server-load-#{server.id}"}
+                      class="progress w-16"
+                      value={server.load}
+                      max="100"
+                    ></progress>
+                    <span id={"server-load-pct-#{server.id}"}>{server.load}%</span>
+                  </div>
                 </td>
                 <td>
                   <span

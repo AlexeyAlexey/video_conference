@@ -291,6 +291,86 @@ defmodule VideoConference.StreamServerAdminPortal.StreamServersTest do
     end
   end
 
+  describe "update_stream_server_load/2" do
+    test "sets and persists the load" do
+      stream_server = stream_server_fixture()
+      assert stream_server.load == 0
+
+      {:ok, updated} = StreamServers.update_stream_server_load(stream_server.id, 42)
+
+      assert updated.load == 42
+      assert StreamServers.get_stream_server!(stream_server.id).load == 42
+    end
+
+    test "accepts the 0 and 100 boundaries" do
+      stream_server = stream_server_fixture()
+
+      assert {:ok, %{load: 100}} =
+               StreamServers.update_stream_server_load(stream_server.id, 100)
+
+      assert {:ok, %{load: 0}} =
+               StreamServers.update_stream_server_load(stream_server.id, 0)
+
+      assert StreamServers.get_stream_server!(stream_server.id).load == 0
+    end
+
+    test "rejects a load below 0 or above 100 without persisting it" do
+      stream_server = stream_server_fixture()
+      {:ok, _} = StreamServers.update_stream_server_load(stream_server.id, 25)
+
+      for load <- [-1, 101] do
+        {:error, changeset} =
+          StreamServers.update_stream_server_load(stream_server.id, load)
+
+        assert %{load: [_ | _]} = errors_on(changeset)
+        assert StreamServers.get_stream_server!(stream_server.id).load == 25
+      end
+    end
+
+    test "does not bump lock_version" do
+      stream_server = stream_server_fixture()
+
+      {:ok, updated} = StreamServers.update_stream_server_load(stream_server.id, 42)
+
+      assert updated.lock_version == 1
+      assert StreamServers.get_stream_server!(stream_server.id).lock_version == 1
+    end
+
+    test "succeeds on a stale-loaded record and keeps other persisted fields" do
+      stream_server = stream_server_fixture(%{"name" => "edge"})
+      stale = StreamServers.get_stream_server!(stream_server.id)
+
+      {:ok, _} = StreamServers.rename_stream_server(stream_server.id, "renamed")
+
+      {:ok, _} = StreamServers.update_stream_server_load(stale, 60)
+
+      persisted = StreamServers.get_stream_server!(stream_server.id)
+      assert persisted.load == 60
+      assert persisted.name == "renamed"
+      assert persisted.lock_version == 2
+    end
+
+    test "appends no event" do
+      stream_server = stream_server_fixture()
+
+      {:ok, _} = StreamServers.update_stream_server_load(stream_server.id, 42)
+
+      event_types = [
+        inspect(StreamServerWasAdded),
+        inspect(StreamServerWasAssignedToApplication),
+        inspect(StreamServerWasUnassignedFromApplication)
+      ]
+
+      assert [stored] =
+               event_types
+               |> EventStore.get_events(0)
+               |> Enum.filter(&(&1.stream_id == stream_server.id))
+
+      assert stored.event_type == inspect(StreamServerWasAdded)
+      assert stored.version == 1
+    end
+  end
+
   describe "host immutability" do
     test "no update path can change host" do
       stream_server = stream_server_fixture(%{"host" => "1.1.1.1"})
