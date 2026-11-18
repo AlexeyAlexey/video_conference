@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Lets an application resolve each of its named streams to the connection
-info of an assigned stream server, chosen by country and current load,
-through the stream server admin portal API.
+Lets an application resolve requested country codes to the connection
+info of an assigned stream server, chosen by current load, through the
+stream server admin portal API.
 
 ## ADDED Requirements
 
@@ -35,63 +35,49 @@ disabled with 404, indistinguishable from a missing application.
 - **WHEN** an enabled `aak_` credential belongs to a disabled application
 - **THEN** the request is rejected with 404
 
-### Requirement: Streams parameter validation
+### Requirement: Country codes parameter validation
 
-The `streams` parameter SHALL be a list of 1 to 4 entries. Each entry
-SHALL have a `name` (a non-empty string of at most 20 characters) and a
-`country_code` that is either the reserved value `"any"` or a
-lowercase ISO 3166-1 alpha-2 code, matching the stored `country`
-format. Requests violating these rules SHALL be rejected with 400.
+The `country_codes` parameter SHALL be a list of 1 to 4 distinct
+ISO 3166-1 alpha-2 codes, matched case-insensitively and normalized
+to the stored lowercase `country` format; duplicates are allowed and
+collapse only for the distinct-count check. Requests violating these
+rules SHALL be rejected with 400.
 
-#### Scenario: Missing streams parameter
+#### Scenario: Missing country_codes parameter
 
-- **WHEN** a request carries no `streams` parameter or a value that is
-  not a list
+- **WHEN** a request carries no `country_codes` parameter or a value
+  that is not a list
 - **THEN** the response is 400
 
-#### Scenario: Too many streams
+#### Scenario: Too many distinct codes
 
-- **WHEN** a request carries more than 4 `streams` entries
+- **WHEN** a request carries more than 4 distinct `country_codes`
 - **THEN** the response is 400
 
-#### Scenario: Empty streams list
+#### Scenario: Empty country_codes list
 
-- **WHEN** a request carries an empty `streams` list
-- **THEN** the response is 400
-
-#### Scenario: Invalid stream entry
-
-- **WHEN** an entry lacks `name` or `country_code`, or `name` is empty
-  or longer than 20 characters
+- **WHEN** a request carries an empty `country_codes` list
 - **THEN** the response is 400
 
 #### Scenario: Malformed country code
 
-- **WHEN** an entry's `country_code` is not `"any"` and not a
-  lowercase ISO alpha-2 code, for example `"US"` or `"usa"`
+- **WHEN** an entry's value is not an alpha-2 code, for example
+  `"any"`, `"usa"`, or `"d1"`
 - **THEN** the response is 400
 
-### Requirement: Duplicate stream names deduplicated
+#### Scenario: Case-insensitive code
 
-When several `streams` entries share a `name`, the first occurrence
-SHALL win and later entries with the same name SHALL be skipped.
-
-#### Scenario: Duplicate names
-
-- **WHEN** `streams` contains two entries named `"video"` with different
-  country codes
-- **THEN** the `"video"` key in the response reflects the first entry's
-  country code and the second entry is ignored
+- **WHEN** an entry's value is `"US"` or `"De"`
+- **THEN** it is accepted and resolved as the normalized `"us"` /
+  `"de"` code
 
 ### Requirement: Least-loaded server selection by country
 
 For each requested `country_code`, the endpoint SHALL select the
 stream server assigned to the authenticated application whose `country`
-equals the code and whose `load` is lowest, breaking ties
-deterministically. The reserved `country_code` `"any"` SHALL select
-the least-loaded server among all servers assigned to the application,
-regardless of country. Entries sharing a `country_code` SHALL resolve
-to the same server.
+equals the code and whose `load` is lowest; when several servers tie
+on the lowest load, any of them may be returned. Each requested code
+produces one response entry, so repeated codes resolve identically.
 
 #### Scenario: Least loaded chosen
 
@@ -99,51 +85,44 @@ to the same server.
   and 10
 - **THEN** the server with load 10 is returned for that country
 
-#### Scenario: Reserved any selects across countries
+#### Scenario: Duplicate codes preserved
 
-- **WHEN** an entry carries `country_code` `"any"` and the assigned
-  servers span several countries
-- **THEN** the least-loaded assigned server overall is returned for
-  that entry
-
-#### Scenario: Same country resolves identically
-
-- **WHEN** two requested names carry the same `country_code`
-- **THEN** both names map to connection info for the same server
+- **WHEN** the `country_codes` list contains `"us"` twice
+- **THEN** the response contains two identical `"us"` entries
 
 ### Requirement: Unsatisfiable country fails the request
 
 When no assigned stream server matches a requested `country_code`, the
 endpoint SHALL reject the whole request with 422 and an error body
-naming the stream names that could not be satisfied.
+naming the country codes that could not be satisfied.
 
 #### Scenario: No server for a country
 
 - **WHEN** an assigned server exists for `"us"` but none for `"de"` and
-  a request asks for names in both countries
-- **THEN** the response is 422 and the error body names the `"de"`
-  stream names
+  a request asks for both codes
+- **THEN** the response is 422 and the error body names `"de"`
 
 #### Scenario: No assigned servers at all
 
-- **WHEN** the application has no assigned stream servers and a request
-  carries `country_code` `"any"`
+- **WHEN** the application has no assigned stream servers
 - **THEN** the response is 422
 
 ### Requirement: Connection info response
 
-On success the endpoint SHALL respond 200 with a JSON object keyed by
-each unique requested `name`. Each value SHALL contain `url` formed as
-`"https://" <> host`, and SHALL contain `cert_hash` only when the
-selected server has one stored.
+On success the endpoint SHALL respond 200 with a JSON array carrying
+one entry per requested `country_code`, in request order and
+preserving duplicates. Each entry SHALL contain the normalized
+(lowercase) `country_code`, `url` formed as `"https://" <> host`, and
+`cert_hash` only when the selected server has one stored.
 
 #### Scenario: Successful resolution
 
 - **WHEN** every requested `country_code` resolves to an assigned server
-- **THEN** the response is 200 with each unique `name` mapped to its
-  server's `url` and `cert_hash` when present
+- **THEN** the response is 200 with an array whose entries carry
+  `country_code`, `url`, and `cert_hash` when present
 
 #### Scenario: Server without a certificate hash
 
 - **WHEN** the selected server has no `cert_hash` stored
-- **THEN** that name's value contains `url` and no `cert_hash` key
+- **THEN** that entry contains `country_code` and `url`, and no
+  `cert_hash` key

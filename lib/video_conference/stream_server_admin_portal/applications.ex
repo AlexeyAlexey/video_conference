@@ -15,9 +15,15 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo
 
+  alias VideoConference.StreamServerAdminPortal.StreamServers.{
+    ApplicationStreamServer,
+    StreamServer
+  }
+
   alias VideoConference.StreamServerAdminPortal.Applications.{
     ApiKey,
     Application,
+    ConnectionInfo,
     ApplicationDescriptionWasUpdated,
     ApplicationWasAdded,
     ApplicationWasDisabled,
@@ -327,6 +333,25 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
+  Resolves an authenticated `aak_` credential to its application.
+
+  The credential is the `{:application, %ApiKey{}}` tuple `ApiKeyAuth`
+  assigns to `conn.assigns.api_credential`. Returns
+  `{:ok, %Application{}}` when the application is enabled;
+  `{:error, :unauthorized}` for any other credential and
+  `{:error, :not_found}` when the application is disabled or missing —
+  the caller cannot distinguish the two.
+  """
+  def authenticated_application({:application, %ApiKey{} = api_key}) do
+    case Repo.get_by(Application, id: api_key.application_id, enabled: true) do
+      nil -> {:error, :not_found}
+      %Application{} = application -> {:ok, application}
+    end
+  end
+
+  def authenticated_application(_credential), do: {:error, :unauthorized}
+
+  @doc """
   Gets an enabled stream server public key by id belonging to the
   given application.
 
@@ -478,5 +503,51 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   """
   def change_stream_server_public_key(%StreamServerPublicKey{} = key, attrs \\ %{}) do
     StreamServerPublicKey.changeset(key, attrs)
+  end
+
+  ## Assigned stream servers
+
+  @doc """
+  Returns the least-loaded stream server assigned to the application
+  per country, as a `%{country => %StreamServer{}}` map.
+
+  The query groups the application's `application_stream_servers`
+  assignments by `country` at the database level and selects the row
+  holding the minimum `load` per group — SQLite's bare-column rule
+  makes `GROUP BY` return the row the `min()` aggregate picked (among
+  rows tied on `load`, whichever row SQLite chose). `country_codes`
+  limits the result to those countries; `[]` groups servers of every
+  country, including servers without a `country`.
+  """
+  def stream_servers(
+        application_id: application_id,
+        country_codes: country_codes,
+        min_loaded: true
+      ) do
+    StreamServer
+    |> join(:inner, [s], j in ApplicationStreamServer, on: j.stream_server_id == s.id)
+    |> where([_s, j], j.application_id == ^application_id)
+    |> filter_stream_server_country(country_codes)
+    |> group_by([s], s.country)
+    |> select([s], %{country: s.country, min: min(s.load), server: s})
+    |> Repo.all()
+    |> Map.new(&{&1.country, &1.server})
+  end
+
+  defp filter_stream_server_country(query, codes) when codes in [nil, []], do: query
+
+  defp filter_stream_server_country(query, codes) do
+    from [s, _j] in query, where: s.country in ^codes
+  end
+
+  @doc """
+  Resolves `country_codes` — a list of lowercase ISO alpha-2 codes —
+  to a list of connection info entries (`%{country_code:, url:,
+  cert_hash?:}`) for the least-loaded stream server assigned to the
+  application per country, one entry per requested code in request
+  order. Delegates to `ConnectionInfo.execute/1`.
+  """
+  def connection_info(application_id: application_id, country_codes: country_codes) do
+    ConnectionInfo.execute(application_id: application_id, country_codes: country_codes)
   end
 end

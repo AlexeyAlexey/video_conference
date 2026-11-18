@@ -25,6 +25,12 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
     get "/api/stream-server/public-key", PublicKeyController, :show
   end
 
+  scope "/api/application", VideoConferenceWeb.StreamServerAdminPortal.Applications do
+    pipe_through [:api, ApiKeyAuth]
+
+    get "/connection-info", ConnectionInfoController, :show
+  end
+
   scope "/", VideoConferenceWeb.StreamServerAdminPortal do
     pipe_through [:browser, :redirect_if_admin_is_authenticated]
 

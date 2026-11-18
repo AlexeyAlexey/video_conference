@@ -22,6 +22,7 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
 
   alias VideoConference.StreamServerAdminPortal.EventStore
   alias VideoConference.StreamServerAdminPortal.Repo, as: PortalRepo
+  alias VideoConference.StreamServerAdminPortal.StreamServers
 
   import VideoConference.StreamServerAdminPortalFixtures
 
@@ -1123,6 +1124,109 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
       _key = stream_server_public_key_fixture(application_fixture())
 
       assert Applications.list_stream_server_public_keys(Ecto.UUID.generate()) == []
+    end
+  end
+
+  describe "stream_servers/1" do
+    test "returns the least-loaded assigned server per country" do
+      application = application_fixture()
+      other = application_fixture()
+      de_idle = stream_server_fixture(%{"name" => "z-idle", "country" => "de"})
+      de_busy = stream_server_fixture(%{"name" => "a-busy", "country" => "de"})
+      us = stream_server_fixture(%{"country" => "us"})
+      no_country = stream_server_fixture(%{"name" => "no-country"})
+      _unassigned = stream_server_fixture(%{"country" => "jp"})
+      foreign = stream_server_fixture(%{"country" => "fr"})
+
+      {:ok, _} = StreamServers.update_stream_server_load(de_idle.id, 10)
+      {:ok, _} = StreamServers.update_stream_server_load(de_busy.id, 90)
+
+      for {server, app} <- [
+            {de_idle, application},
+            {de_busy, application},
+            {us, application},
+            {no_country, application},
+            {foreign, other}
+          ] do
+        {:ok, _} = StreamServers.assign_application(server.id, app.id)
+      end
+
+      groups =
+        Applications.stream_servers(
+          application_id: application.id,
+          country_codes: [],
+          min_loaded: true
+        )
+
+      assert map_size(groups) == 3
+      assert groups["de"].id == de_idle.id
+      assert groups["us"].id == us.id
+      assert groups[nil].id == no_country.id
+    end
+
+    test "filters by the country_codes list" do
+      application = application_fixture()
+      de = stream_server_fixture(%{"country" => "de"})
+      us = stream_server_fixture(%{"country" => "us"})
+      jp = stream_server_fixture(%{"country" => "jp"})
+      no_country = stream_server_fixture()
+
+      for server <- [de, us, jp, no_country] do
+        {:ok, _} = StreamServers.assign_application(server.id, application.id)
+      end
+
+      groups =
+        Applications.stream_servers(
+          application_id: application.id,
+          country_codes: ["de", "us"],
+          min_loaded: true
+        )
+
+      assert map_size(groups) == 2
+      assert groups["de"].id == de.id
+      assert groups["us"].id == us.id
+    end
+
+    test "returns %{} when the application has no assigned servers" do
+      application = application_fixture()
+      other = application_fixture()
+      {:ok, _} = StreamServers.assign_application(stream_server_fixture().id, other.id)
+
+      assert Applications.stream_servers(
+               application_id: application.id,
+               country_codes: [],
+               min_loaded: true
+             ) == %{}
+    end
+  end
+
+  describe "authenticated_application/1" do
+    test "returns {:ok, application} for an application credential" do
+      application = application_fixture()
+      {api_key, _secret} = api_key_with_secret_fixture(application)
+
+      assert {:ok, %Application{} = resolved} =
+               Applications.authenticated_application({:application, api_key})
+
+      assert resolved.id == application.id
+    end
+
+    test "returns {:error, :not_found} for a disabled application" do
+      application = application_fixture()
+      {api_key, _secret} = api_key_with_secret_fixture(application)
+      {:ok, _} = Applications.disable_application(application.id)
+
+      assert Applications.authenticated_application({:application, api_key}) ==
+               {:error, :not_found}
+    end
+
+    test "returns {:error, :unauthorized} for a non-application credential" do
+      stream_server_key = stream_server_api_key_fixture(stream_server_fixture())
+
+      assert Applications.authenticated_application({:stream_server, stream_server_key}) ==
+               {:error, :unauthorized}
+
+      assert Applications.authenticated_application(nil) == {:error, :unauthorized}
     end
   end
 end
