@@ -27,13 +27,14 @@ request authenticated with an `ssak_` credential SHALL be rejected with
 
 ### Requirement: Disabled application rejected
 
-The endpoint SHALL reject requests whose authenticated application is
-disabled with 404, indistinguishable from a missing application.
+Requests presenting an `aak_` credential whose owning application is
+disabled SHALL be rejected with 401 during authentication, before the
+endpoint runs — indistinguishable from an invalid credential.
 
 #### Scenario: Disabled application
 
 - **WHEN** an enabled `aak_` credential belongs to a disabled application
-- **THEN** the request is rejected with 404
+- **THEN** the request is rejected with 401
 
 ### Requirement: Country codes parameter validation
 

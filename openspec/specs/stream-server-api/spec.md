@@ -15,7 +15,10 @@ Requests to the stream server API SHALL present an API key secret in the
 `env_prefix` to select the credential table (`"ssak"` for stream server
 API keys, `"aak"` for application API keys), look the credential up by
 its stored `prefix`, verify the presented secret against the stored
-hash, and require the credential to be enabled. Requests failing any of
+hash, and require the credential to be enabled. For an `aak_`
+credential the lookup SHALL also require the credential's owning
+application to be enabled; a key on a disabled application SHALL be
+indistinguishable from an unknown prefix. Requests failing any of
 these steps SHALL be rejected with 401 and a JSON error body.
 
 #### Scenario: Valid enabled credential authenticates
@@ -48,6 +51,13 @@ these steps SHALL be rejected with 401 and a JSON error body.
 - **WHEN** a request presents a valid secret for a credential whose
   `enabled` flag is false
 - **THEN** the request is rejected with 401
+
+#### Scenario: Application credential of disabled application rejected
+
+- **WHEN** a request presents a valid secret for an enabled `aak_`
+  credential whose owning application is disabled
+- **THEN** the request is rejected with 401, indistinguishable from an
+  unknown prefix
 
 #### Scenario: Unrecognized env_prefix rejected
 
