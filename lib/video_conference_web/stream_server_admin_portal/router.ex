@@ -29,6 +29,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Router do
     pipe_through [:api, ApiKeyAuth]
 
     get "/connection-info", ConnectionInfoController, :show
+    get "/available-countries", ConnectionInfoController, :available_countries
   end
 
   scope "/", VideoConferenceWeb.StreamServerAdminPortal do

@@ -55,6 +55,31 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Applications.ConnectionInfo
     end
   end
 
+  @doc """
+  Returns the country codes the application has assigned servers for.
+
+  Only `aak_` credentials may call this endpoint; the authenticated
+  credential identifies the application, which must be enabled.
+
+  ## Response
+
+  `200` — a JSON array of the ISO alpha-2 `country` codes of the
+  application's assigned stream servers, deduplicated, sorted
+  alphabetically, and excluding servers without a country. `[]` when
+  the application has no qualifying assignments. `401` wrong
+  credential type; a credential on a disabled application is rejected
+  by `ApiKeyAuth` with 401 before this endpoint runs.
+  """
+  def available_countries(conn, _params) do
+    case Applications.authenticated_application(conn.assigns[:api_credential]) do
+      {:ok, application} ->
+        json(conn, Applications.available_countries(application_id: application.id))
+
+      {:error, status} ->
+        error(conn, status)
+    end
+  end
+
   defp validate_params(%{"country_codes" => codes}) when is_list(codes) do
     if codes != [] and length(Enum.uniq(codes)) <= @max_country_codes and
          Enum.all?(codes, &valid_code?/1) do

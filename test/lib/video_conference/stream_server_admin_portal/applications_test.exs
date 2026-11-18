@@ -1229,6 +1229,45 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
+  describe "available_countries/1" do
+    test "returns the sorted unique countries of assigned servers" do
+      application = application_fixture()
+      other = application_fixture()
+
+      for {attrs, app} <- [
+            {%{"country" => "us"}, application},
+            {%{"country" => "de"}, application},
+            {%{"country" => "gb"}, application},
+            {%{"country" => "de"}, application},
+            {%{"name" => "no-country"}, application},
+            {%{"country" => "fr"}, other}
+          ] do
+        server = stream_server_fixture(attrs)
+        {:ok, _} = StreamServers.assign_application(server.id, app.id)
+      end
+
+      assert Applications.available_countries(application_id: application.id) ==
+               ["de", "gb", "us"]
+    end
+
+    test "returns countries regardless of server load" do
+      application = application_fixture()
+      server = stream_server_fixture(%{"country" => "de"})
+      {:ok, _} = StreamServers.update_stream_server_load(server.id, 90)
+      {:ok, _} = StreamServers.assign_application(server.id, application.id)
+
+      assert Applications.available_countries(application_id: application.id) == ["de"]
+    end
+
+    test "returns [] when no assigned server has a country" do
+      application = application_fixture()
+      no_country = stream_server_fixture(%{"name" => "no-country"})
+      {:ok, _} = StreamServers.assign_application(no_country.id, application.id)
+
+      assert Applications.available_countries(application_id: application.id) == []
+    end
+  end
+
   describe "authenticated_application/1" do
     test "returns {:ok, application} for an application credential" do
       application = application_fixture()

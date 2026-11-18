@@ -199,4 +199,57 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Applications.ConnectionInfo
       refute Map.has_key?(info, "cert_hash")
     end
   end
+
+  describe "GET /stream-server-admin/api/application/available-countries" do
+    @available_countries_path "/stream-server-admin/api/application/available-countries"
+
+    defp available_countries_request(conn, secret) do
+      conn
+      |> put_req_header("x-api-key", secret)
+      |> get(@available_countries_path)
+    end
+
+    test "returns the sorted unique country codes of assigned servers", %{conn: conn} do
+      {application, secret} = application_with_secret()
+      other = application_fixture()
+
+      _us = assigned_server(application, %{"country" => "us"})
+      _de = assigned_server(application, %{"country" => "de"}, 90)
+      _gb = assigned_server(application, %{"country" => "gb"})
+      _de_dup = assigned_server(application, %{"country" => "de"})
+      _no_country = assigned_server(application, %{"name" => "no-country"})
+
+      {:ok, _} =
+        StreamServers.assign_application(stream_server_fixture(%{"country" => "fr"}).id, other.id)
+
+      conn = available_countries_request(conn, secret)
+
+      assert json_response(conn, 200) == ["de", "gb", "us"]
+    end
+
+    test "returns [] when the application has no assigned servers", %{conn: conn} do
+      {_application, secret} = application_with_secret()
+
+      conn = available_countries_request(conn, secret)
+
+      assert json_response(conn, 200) == []
+    end
+
+    test "rejects a valid stream server (ssak_) credential", %{conn: conn} do
+      {_key, ssak_secret} = stream_server_api_key_with_secret_fixture(stream_server_fixture())
+
+      conn = available_countries_request(conn, ssak_secret)
+
+      assert json_response(conn, 401) == %{"errors" => %{"detail" => "Unauthorized"}}
+    end
+
+    test "rejects a disabled application", %{conn: conn} do
+      {application, secret} = application_with_secret()
+      {:ok, _} = Applications.disable_application(application.id)
+
+      conn = available_countries_request(conn, secret)
+
+      assert json_response(conn, 401) == %{"errors" => %{"detail" => "Unauthorized"}}
+    end
+  end
 end

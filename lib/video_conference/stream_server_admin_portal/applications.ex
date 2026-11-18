@@ -560,6 +560,24 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   end
 
   @doc """
+  Returns the unique `country` codes of the stream servers assigned
+  to the application, sorted alphabetically. Servers without a
+  `country` contribute nothing; server `load` does not affect
+  membership.
+  """
+  def available_countries(application_id: application_id) do
+    Repo.all(
+      from s in StreamServer,
+        join: j in ApplicationStreamServer,
+        on: j.stream_server_id == s.id,
+        where: j.application_id == ^application_id and not is_nil(s.country),
+        distinct: true,
+        order_by: [asc: s.country],
+        select: s.country
+    )
+  end
+
+  @doc """
   Resolves `country_codes` — a list of lowercase ISO alpha-2 codes —
   to a list of connection info entries (`%{country_code:, url:,
   cert_hash?:}`) for the least-loaded stream server assigned to the
