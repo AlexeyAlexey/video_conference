@@ -201,9 +201,28 @@ defmodule VideoConference.StreamServerAdminPortal.Applications do
   Gets a single API key by its stored `prefix` (`"aak_" <> prefix_id`),
   returning `{:error, :not_found}` when no key carries the prefix.
   Disabled keys are returned — rejecting them is the caller's job.
+
+  The `:application_enabled` filter additionally requires the key's
+  owning application to be enabled: a key on a disabled application
+  returns `{:error, :not_found}`, indistinguishable from an unknown
+  prefix.
   """
   def get_api_key_by_prefix(prefix) when is_binary(prefix) do
     case Repo.get_by(ApiKey, prefix: prefix) do
+      nil -> {:error, :not_found}
+      api_key -> {:ok, api_key}
+    end
+  end
+
+  def get_api_key_by_prefix(prefix, :application_enabled) when is_binary(prefix) do
+    from(k in ApiKey,
+      join: a in assoc(k, :application),
+      where:
+        k.prefix == ^prefix and
+          a.enabled
+    )
+    |> Repo.one()
+    |> case do
       nil -> {:error, :not_found}
       api_key -> {:ok, api_key}
     end

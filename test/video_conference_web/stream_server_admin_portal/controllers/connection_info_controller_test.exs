@@ -87,7 +87,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Applications.ConnectionInfo
 
       conn = request(conn, secret, %{"country_codes" => ["de"]})
 
-      assert json_response(conn, 404) == %{"errors" => %{"detail" => "Not Found"}}
+      assert json_response(conn, 401) == %{"errors" => %{"detail" => "Unauthorized"}}
     end
 
     test "rejects malformed or missing country_codes params" do

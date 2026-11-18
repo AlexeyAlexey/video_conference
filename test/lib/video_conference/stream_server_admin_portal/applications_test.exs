@@ -442,6 +442,35 @@ defmodule VideoConference.StreamServerAdminPortal.ApplicationsTest do
     end
   end
 
+  describe "get_api_key_by_prefix/2" do
+    test ":application_enabled returns the key of an enabled application" do
+      key = api_key_fixture(application_fixture())
+
+      assert {:ok, %ApiKey{} = found} =
+               Applications.get_api_key_by_prefix(key.prefix, :application_enabled)
+
+      assert found.id == key.id
+    end
+
+    test ":application_enabled returns {:error, :not_found} for a disabled application" do
+      application = application_fixture()
+      key = api_key_fixture(application)
+      {:ok, _application} = Applications.disable_application(application.id)
+
+      assert Applications.get_api_key_by_prefix(key.prefix, :application_enabled) ==
+               {:error, :not_found}
+    end
+
+    test "without the filter a disabled application's key is still returned" do
+      application = application_fixture()
+      key = api_key_fixture(application)
+      {:ok, _application} = Applications.disable_application(application.id)
+
+      assert {:ok, %ApiKey{} = found} = Applications.get_api_key_by_prefix(key.prefix)
+      assert found.id == key.id
+    end
+  end
+
   describe "api key field updates" do
     test "rename, description edit, and enable/disable bump lock_version" do
       key = api_key_fixture(application_fixture())

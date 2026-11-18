@@ -111,5 +111,20 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeyAuthTest do
       assert conn.halted
       assert conn.status == 401
     end
+
+    test "rejects a valid secret for an enabled key on a disabled application", %{conn: conn} do
+      application = application_fixture()
+      {_key, secret} = api_key_with_secret_fixture(application)
+      {:ok, _application} = Applications.disable_application(application.id)
+
+      conn =
+        conn
+        |> put_req_header("x-api-key", secret)
+        |> ApiKeyAuth.call([])
+
+      assert conn.halted
+      assert conn.status == 401
+      assert conn.assigns[:api_credential] == nil
+    end
   end
 end

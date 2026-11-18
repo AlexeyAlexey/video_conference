@@ -62,7 +62,7 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.ApiKeyAuth do
     lookup =
       case env_prefix do
         "ssak" -> fn -> StreamServers.get_stream_server_api_key_by_prefix(prefix) end
-        "aak" -> fn -> Applications.get_api_key_by_prefix(prefix) end
+        "aak" -> fn -> Applications.get_api_key_by_prefix(prefix, :application_enabled) end
         _other -> fn -> {:error, :not_found} end
       end
 

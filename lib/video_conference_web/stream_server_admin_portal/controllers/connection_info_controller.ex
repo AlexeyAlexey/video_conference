@@ -36,7 +36,8 @@ defmodule VideoConferenceWeb.StreamServerAdminPortal.Applications.ConnectionInfo
 
   `422` — `%{errors: %{detail, country_codes}}` naming the codes with
   no assigned server. `400` malformed params, `401` wrong credential
-  type, `404` disabled application.
+  type; a credential on a disabled application is rejected by
+  `ApiKeyAuth` with 401 before this endpoint runs.
   """
   def show(conn, params) do
     with {:ok, application} <-
