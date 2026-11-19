@@ -43,13 +43,13 @@ defmodule Http3Server.StreamHandler do
         %{
           room_id: room_id,
           participant_id: participant_id,
-          stream_type: stream_type,
+          # stream_type: stream_type,
           package_handler: package_handler,
           health_check: _health_check
         } =
           state
-      )
-      when stream_type in ["video", "audio"] do
+      ) do
+    # when stream_type in ["video", "audio"] do
     {parsed_data, buffer, leftover_bytes} =
       PackageHandler.expand_with(
         data,
@@ -67,18 +67,18 @@ defmodule Http3Server.StreamHandler do
       state
       |> Map.put(:package_handler, package_handler)
 
-    state =
-      if stream_type in ["video", "audio"] do
-        StreamHeandlerHealthCheck.update(state)
-      else
-        state
-      end
+    # state =
+    #   if stream_type in ["video", "audio"] do
+    #     StreamHeandlerHealthCheck.update(state)
+    #   else
+    #     state
+    #   end
 
-    if stream_type in ["video", "audio"] && StreamHeandlerHealthCheck.is_updated(state) do
-      Logger.info(
-        "health check: #{StreamHeandlerHealthCheck.log_format(state)}; send to to participant id: #{participant_id}; stream_type: #{stream_type};"
-      )
-    end
+    # if stream_type in ["video", "audio"] && StreamHeandlerHealthCheck.is_updated(state) do
+    #   Logger.info(
+    #     "health check: #{StreamHeandlerHealthCheck.log_format(state)}; send to to participant id: #{participant_id}; stream_type: #{stream_type};"
+    #   )
+    # end
 
     if byte_size(parsed_data) > 0 do
       :ok =
@@ -91,39 +91,39 @@ defmodule Http3Server.StreamHandler do
     {:continue, state}
   end
 
-  @impl Wtransport.StreamHandler
-  def handle_data(
-        data,
-        %Stream{stream_type: :bi},
-        %{
-          room_id: _room_id,
-          participant_id: _participant_id,
-          stream_type: stream_type,
-          package_handler: package_handler
-        } =
-          state
-      )
-      when stream_type == "event" do
-    # TODO Implement
-    {decoded_package, buffer, leftover_bytes} =
-      PackageDecoder.decode(data, package_handler[:buffer], package_handler[:leftover_bytes])
+  # @impl Wtransport.StreamHandler
+  # def handle_data(
+  #       data,
+  #       %Stream{stream_type: :bi},
+  #       %{
+  #         room_id: _room_id,
+  #         participant_id: _participant_id,
+  #         stream_type: stream_type,
+  #         package_handler: package_handler
+  #       } =
+  #         state
+  #     )
+  #     when stream_type == "event" do
+  #   # TODO Implement
+  #   {decoded_package, buffer, leftover_bytes} =
+  #     PackageDecoder.decode(data, package_handler[:buffer], package_handler[:leftover_bytes])
 
-    package_handler =
-      package_handler
-      |> Map.put(:buffer, buffer)
-      |> Map.put(:leftover_bytes, leftover_bytes)
+  #   package_handler =
+  #     package_handler
+  #     |> Map.put(:buffer, buffer)
+  #     |> Map.put(:leftover_bytes, leftover_bytes)
 
-    state = state |> Map.put(:package_handler, package_handler)
+  #   state = state |> Map.put(:package_handler, package_handler)
 
-    if byte_size(decoded_package) > 0 do
-      Http3Server.PackageStreamHandler.PackageParser.parse(decoded_package)
-      # |> IO.inspect(label: "-----------------")
-    end
+  #   if byte_size(decoded_package) > 0 do
+  #     Http3Server.PackageStreamHandler.PackageParser.parse(decoded_package)
+  #     # |> IO.inspect(label: "-----------------")
+  #   end
 
-    Logger.info("Event")
+  #   Logger.info("Event")
 
-    {:continue, state}
-  end
+  #   {:continue, state}
+  # end
 
   @impl Wtransport.StreamHandler
   def handle_data(
