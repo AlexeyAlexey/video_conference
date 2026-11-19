@@ -1,0 +1,37 @@
+import Config
+
+if System.fetch_env!("MIX_ENV") == "dev" do
+  config :stream_server, :options,
+    host: System.fetch_env!("HOST"),
+    port: System.fetch_env!("PORT") |> String.to_integer(),
+    certfile: System.fetch_env!("SSL_CERT_PATH"),
+    keyfile: System.fetch_env!("SSL_KEY_PATH"),
+    connection_handler: StreamServer.ConnectionHandler,
+    stream_handler: StreamServer.StreamHandler
+
+  # log_network_data: true
+
+  config :logger,
+    level: :all,
+    default_formatter: [
+      format: "$time ( $metadata) [$level] $message\n",
+      metadata: [:mfa, :line]
+    ]
+else
+  config :stream_server, :options,
+    host: System.fetch_env!("HOST"),
+    port: System.fetch_env!("PORT") |> String.to_integer(),
+    certfile: System.fetch_env!("SSL_CERT_PATH"),
+    keyfile: System.fetch_env!("SSL_KEY_PATH"),
+    connection_handler: StreamServer.ConnectionHandler,
+    stream_handler: StreamServer.StreamHandler
+
+  # config :joken, default_signer: System.fetch_env!("JWT_SECRET")
+
+  config :logger,
+    level: :all,
+    default_formatter: [
+      format: "$time ( $metadata) [$level] $message\n",
+      metadata: [:mfa, :line]
+    ]
+end
