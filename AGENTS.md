@@ -1,4 +1,4 @@
-# AI Coding Agent Instructions - Http3Server
+# AI Coding Agent Instructions - StreamServer
 
 ## Project Overview
 
@@ -38,23 +38,23 @@ dotenv -e .env iex -S mix  # or run manually with required env vars
 ## Architecture Overview
 
 ```
-Http3Server.Application (OTP Application)
+StreamServer.Application (OTP Application)
 ├── Registry (AudioPhoneCallManager, VideoPhoneCallManager) - Unique name registration
 ├── Wtransport.Supervisor - Manages HTTP3 server
 ├── PubSub - Message bus for participants
 └── DynamicSupervisors
-    ├── Http3Server.AudioPhoneCallManagerSupervisor
-    └── Http3Server.VideoPhoneCallManagerSupervisor
+    ├── StreamServer.AudioPhoneCallManagerSupervisor
+    └── StreamServer.VideoPhoneCallManagerSupervisor
 ```
 
 ### Core Modules
 
 | Module | Purpose |
 |--------|---------|
-| `Http3Server.ConnectionHandler` | Handles new HTTP3 connections, JWT authentication |
-| `Http3Server.StreamHandler` | Manages bidirectional/unidirectional streams |
-| `Http3Server.PhoneCallManager` | Orchestrates audio/video phone calls |
-| `Http3Server.AudioPhoneCallManager` / `VideoPhoneCallManager` | GenServers for individual call sessions |
+| `StreamServer.ConnectionHandler` | Handles new HTTP3 connections, JWT authentication |
+| `StreamServer.StreamHandler` | Manages bidirectional/unidirectional streams |
+| `StreamServer.PhoneCallManager` | Orchestrates audio/video phone calls |
+| `StreamServer.AudioPhoneCallManager` / `VideoPhoneCallManager` | GenServers for individual call sessions |
 
 ---
 
@@ -137,7 +137,7 @@ openssl req -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout serv
 
 ```javascript
 // For self-signed certificates, serverCertificateHashes is required:
-const http3Server = new WebTransport(`https://localhost:4433/authToken`, {
+const StreamServer = new WebTransport(`https://localhost:4433/authToken`, {
   serverCertificateHashes: [
     {
       algorithm: "sha-256",
@@ -147,7 +147,7 @@ const http3Server = new WebTransport(`https://localhost:4433/authToken`, {
 });
 
 // For trusted certificates:
-const http3Server = new WebTransport(`https://localhost:4433/authToken`);
+const StreamServer = new WebTransport(`https://localhost:4433/authToken`);
 ```
 
 ---
@@ -180,4 +180,4 @@ const http3Server = new WebTransport(`https://localhost:4433/authToken`);
 
 - Enable network logging: `log_network_data: true` in config
 - Check registry entries: `Registry.lookup(AudioPhoneCallManager, call_id)`
-- View supervisor tree: `Supervisor.which_children(Http3Server.AudioPhoneCallManagerSupervisor)`
+- View supervisor tree: `Supervisor.which_children(StreamServer.AudioPhoneCallManagerSupervisor)`

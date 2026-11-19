@@ -1,0 +1,15 @@
+defmodule StreamServer.CallBeep do
+  # seconds
+  @repeat_after 3000
+  # @mp3_binary File.read!(Path.join([__DIR__, "../../../priv/sounds/call_beep.mp3"]))
+  @mp3_binary ""
+
+  def play, do: @mp3_binary
+
+  def repeat_after, do: @repeat_after
+
+  # def get_mp3_binary do
+  #   Path.join(:code.priv_dir(:stream_server), "sounds/call_beep.mp3")
+  #   |> File.read!()
+  # end
+end

@@ -1,0 +1,347 @@
+defmodule StreamServer.AudioPhoneCallManager do
+  use GenServer
+
+  @waiting_time 30000
+
+  alias StreamServer.AudioPhoneCallManagerSupervisor
+  alias StreamServer.CallBeep
+  alias StreamServer.PhoneCallManager
+
+  # TODO terminate process when call is ended
+  # TODO implement reconnection
+  def start_link(opts) do
+    name =
+      Keyword.get(opts, :name)
+
+    GenServer.start_link(
+      __MODULE__,
+      opts,
+      name: name
+    )
+    |> case do
+      {:ok, pid} ->
+        Process.send_after(pid, :send_beep_to_caller, 1000)
+        Process.send_after(pid, :check_if_responded, @waiting_time)
+
+        {:ok, pid}
+
+      {:error, {:already_started, pid}} ->
+        {:error, {:already_started, pid}}
+    end
+  end
+
+  ## Callbacks
+
+  @impl true
+  def init(opts) do
+    {:ok,
+     Keyword.delete(opts, :name)
+     |> Map.new()
+     |> Map.put(:responded, false)
+     |> Map.put(:connection_status, :connected)}
+  end
+
+  def state(call_id) do
+    server(call_id)
+    |> GenServer.call(:state)
+  end
+
+  def connect(
+        caller_pid,
+        %{
+          custom_params: custom_params,
+          direction: "outcome",
+          type: "phone_call",
+          from: from,
+          to: to
+        }
+      ) do
+    PhoneCallManager.call_id(from: from, to: to)
+    |> AudioPhoneCallManagerSupervisor.start_child(
+      caller_pid: caller_pid,
+      from: from,
+      to: to,
+      receiver_custom_params: custom_params
+    )
+    |> case do
+      {:ok, pid} ->
+        {:ok, pid}
+
+      {:error, {:already_started, pid}} ->
+        reconnect(
+          caller_pid,
+          %{
+            direction: "outcome",
+            type: "phone_call",
+            from: from,
+            to: to,
+            custom_params: custom_params
+          }
+        )
+
+        {:ok, pid}
+    end
+  end
+
+  def connect(
+        receiver_pid,
+        %{
+          custom_params: custom_params,
+          direction: "income",
+          type: "phone_call",
+          from: from,
+          to: to
+        }
+      ) do
+    call_id = PhoneCallManager.call_id(from: from, to: to)
+
+    with {:ok, _pid} <- lookup_manager(call_id) do
+      responded(call_id, %{
+        receiver_pid: receiver_pid,
+        custom_params: custom_params
+      })
+    else
+      {:error, :not_found} ->
+        {:error, "call was dropped"}
+    end
+  end
+
+  def reconnect(
+        caller_pid,
+        %{
+          custom_params: custom_params,
+          direction: "outcome",
+          type: "phone_call",
+          from: from,
+          to: to
+        }
+      ) do
+    PhoneCallManager.call_id(from: from, to: to)
+    |> server()
+    |> GenServer.call(
+      {:reconnect, %{caller_pid: caller_pid, receiver_custom_params: custom_params}}
+    )
+  end
+
+  def responded(call_id, data) when is_binary(call_id) and is_map(data) do
+    server(call_id)
+    |> GenServer.call({:responded, data})
+  end
+
+  def play_ringtone(call_id, data) do
+    server(call_id)
+    |> GenServer.cast({:play_ringtone, data})
+  end
+
+  def end_call(
+        %{
+          direction: _direction,
+          type: "phone_call",
+          from: from,
+          to: to,
+          reason: _reason
+        } = params
+      ) do
+    PhoneCallManager.call_id(from: from, to: to)
+    |> server()
+    |> GenServer.call({:end_call, params})
+  end
+
+  @impl true
+  def handle_call(
+        {:reconnect, %{caller_pid: caller_pid, receiver_custom_params: receiver_custom_params}},
+        _from,
+        state
+      ) do
+    # if state[:caller_pid] do
+    #   # check if alive
+    #   # send command to terminate
+    # end
+
+    receiver_pid = state[:receiver_pid]
+
+    state =
+      if receiver_pid && Process.alive?(receiver_pid) do
+        Map.put(state, :responded, true)
+      else
+        Map.put(state, :responded, false)
+      end
+
+    Process.send_after(self(), :send_beep_to_caller, 1000)
+
+    if !state[:responded] do
+      Process.send_after(self(), :check_if_responded, @waiting_time)
+    end
+
+    state =
+      state
+      |> Map.put(:caller_pid, caller_pid)
+      |> Map.put(:connection_status, :connected)
+      |> Map.put(:receiver_custom_params, receiver_custom_params)
+
+    {:reply, {:ok, state}, state}
+  end
+
+  @impl true
+  def handle_call(
+        {:responded, %{receiver_pid: receiver_pid, custom_params: custom_params}},
+        _from,
+        state
+      ) do
+    # if state[:receiver_pid] do
+    #   # check if alive
+    #   # send command to terminate
+    # end
+
+    state =
+      state
+      |> Map.put(:receiver_pid, receiver_pid)
+      |> Map.put(:caller_custom_params, custom_params)
+      |> Map.put(:responded, true)
+
+    {:reply, {:ok, state}, state}
+  end
+
+  @impl true
+  def handle_call(
+        :state,
+        _from,
+        state
+      ) do
+    {:reply, {:ok, state}, state}
+  end
+
+  @impl true
+  def handle_call(
+        {:end_call,
+         %{
+           direction: _direction,
+           type: "phone_call" = _type,
+           from: _,
+           to: _to,
+           reason: reason
+         }},
+        _from,
+        state
+      ) do
+    # TODO encapsulate <<"M", "S", package_size::32, 3::8, reason::binary>>
+    # TODO encapsulate "video/phone_call/#{state.from}/#{state.to}"
+
+    reason_size = byte_size(reason)
+    # 3::8 is 1 byte
+    package_size = 1 + reason_size
+
+    message = <<"M", "S", package_size::32, 3::8, reason::binary>>
+
+    PhoneCallManager.send_data_to_video_stream(from: state.from, to: state.to, data: message)
+    PhoneCallManager.send_data_to_audio_stream(from: state.from, to: state.to, data: message)
+
+    PhoneCallManager.trigger_video_stream_callback(
+      :end_call,
+      from: state.from,
+      to: state.to,
+      message: reason
+    )
+
+    PhoneCallManager.trigger_audio_stream_callback(
+      :end_call,
+      from: state.from,
+      to: state.to,
+      message: reason
+    )
+
+    state =
+      state
+      |> Map.put(:responded, false)
+      |> Map.put(:caller_pid, nil)
+      |> Map.put(:receiver_pid, nil)
+      |> Map.put(:connection_status, :disconnected)
+      |> Map.drop([:caller_custom_params, :receiver_custom_params])
+
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_cast(
+        {:play_ringtone, data},
+        state
+      ) do
+    PhoneCallManager.send_data_to_audio_stream(from: state.from, to: state.to, data: data)
+
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(
+        :send_beep_to_caller,
+        %{responded: responded} = state
+      ) do
+    if !responded && state[:connection_status] == :connected do
+      PhoneCallManager.send_data_to_audio_stream(
+        from: state.from,
+        to: state.to,
+        data: CallBeep.play()
+      )
+
+      Process.send_after(self(), :send_beep_to_caller, CallBeep.repeat_after())
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_info(
+        :check_if_responded,
+        state
+      ) do
+    if !state.responded do
+      data = <<"M", "S", 21::32, 3::8, "waiting_time_expired">>
+
+      PhoneCallManager.send_data_to_audio_stream(
+        from: state.from,
+        to: state.to,
+        data: data
+      )
+
+      PhoneCallManager.send_data_to_video_stream(
+        from: state.from,
+        to: state.to,
+        data: data
+      )
+
+      PhoneCallManager.trigger_audio_stream_callback(
+        :waiting_time_expired,
+        from: state.from,
+        to: state.to
+      )
+
+      PhoneCallManager.trigger_video_stream_callback(
+        :waiting_time_expired,
+        from: state.from,
+        to: state.to
+      )
+    end
+
+    state = if state.responded, do: state, else: Map.put(state, :connection_status, :disconnected)
+
+    {:noreply, state}
+  end
+
+  @doc """
+  Looks up the given writer.
+  """
+  # lookup_manager(call_id)
+  def lookup_manager(call_id) do
+    server(call_id)
+    |> GenServer.whereis()
+    |> case do
+      nil -> {:error, :not_found}
+      pid -> {:ok, pid}
+    end
+  end
+
+  def name(call_id), do: call_id
+
+  def server(call_id), do: name(call_id) |> via()
+
+  defp via(name), do: {:via, Registry, {AudioPhoneCallManager, name}}
+end

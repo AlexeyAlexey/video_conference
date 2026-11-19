@@ -1,4 +1,4 @@
-defmodule Http3Server.ConnectionSessionMock do
+defmodule StreamServer.ConnectionSessionMock do
   alias Wtransport.Session
 
   def mock_connection_session(path: path, auth_token: auth_token) do

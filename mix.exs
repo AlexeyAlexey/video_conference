@@ -1,9 +1,9 @@
-defmodule Http3Server.MixProject do
+defmodule StreamServer.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :http3_server,
+      app: :stream_server,
       version: "0.1.0",
       elixir: "~> 1.19",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -18,7 +18,7 @@ defmodule Http3Server.MixProject do
       # extra_applications: [:logger, :observer, :wx, :runtime_tools],
       # extra_applications: [:logger, :observer, :runtime_tools],
       extra_applications: [:logger, :runtime_tools],
-      mod: {Http3Server.Application, []}
+      mod: {StreamServer.Application, []}
     ]
   end
 

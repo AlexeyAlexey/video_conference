@@ -1,4 +1,4 @@
-defmodule Http3Server.StreamMock do
+defmodule StreamServer.StreamMock do
   alias Wtransport.Stream
 
   def mock_stream(),

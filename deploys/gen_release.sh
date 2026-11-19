@@ -13,13 +13,13 @@ echo "destination: $rel_dir_path"
 
 mkdir -p $rel_dir_path
 
-docker build -t http3_server .
+docker build -t stream_server .
 
-docker create --name temp-http3_server http3_server
+docker create --name temp-stream_server stream_server
 
-docker cp temp-http3_server:/app "$rel_dir_path"
+docker cp temp-stream_server:/app "$rel_dir_path"
 
-docker rm temp-http3_server
+docker rm temp-stream_server
 
 cd "$rel_dir_path"
 

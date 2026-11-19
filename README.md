@@ -1,4 +1,4 @@
-# Http3Server
+# StreamServer
 
 An Elixir HTTP/3 (WebTransport) media relay server built on
 [`wtransport`](https://github.com/bugnano/wtransport-elixir.git).
@@ -96,7 +96,7 @@ openssl x509 -in server.crt -outform DER | openssl dgst -sha256 -hex
 With a self-signed certificate, `serverCertificateHashes` is required:
 
 ```javascript
-const http3Server = new WebTransport(`https://localhost:4433/authToken`, {
+const StreamServer = new WebTransport(`https://localhost:4433/authToken`, {
   serverCertificateHashes: [
     {
       algorithm: "sha-256",
@@ -109,14 +109,14 @@ const http3Server = new WebTransport(`https://localhost:4433/authToken`, {
 With a trusted certificate:
 
 ```javascript
-const http3Server = new WebTransport(`https://localhost:4433/authToken`);
+const StreamServer = new WebTransport(`https://localhost:4433/authToken`);
 ```
 
 ## Authentication
 
 The client passes a JWT in the query string: `?auth_token=<jwt>`.
 The token must be signed with the private key of a trusted host
-(see `Http3Server.Auth.TrustedHost`); the server looks up the matching
+(see `StreamServer.Auth.TrustedHost`); the server looks up the matching
 public key to verify it.
 
 Required claims:
@@ -150,7 +150,7 @@ before broadcasting to the room:
 <<'M', 'S', 'E', extended_length::32, participant_id::32, payload>>
 ```
 
-See `Http3Server.PackageStreamHandler.Package` for the framing parser.
+See `StreamServer.PackageStreamHandler.Package` for the framing parser.
 
 ## Tests
 
@@ -162,10 +162,10 @@ dotenv -e .env.test mix test
 ## Docker
 
 ```bash
-# Debian 12 variant: docker build -f Dockerfile.deb12 -t http3_server .
-docker build -t http3_server .
+# Debian 12 variant: docker build -f Dockerfile.deb12 -t stream_server .
+docker build -t stream_server .
 
-docker run --name http3_server \
+docker run --name stream_server \
   -p 4433:4433/tcp -p 4433:4433/udp \
   -v "/path/to/certs/on/host:/app/certs:ro" \
   -e MIX_ENV=prod \
@@ -174,19 +174,19 @@ docker run --name http3_server \
   -e JWT_LOCAL_HOST_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n..." \
   -e SSL_KEY_PATH=/app/certs/server.key \
   -e SSL_CERT_PATH=/app/certs/server.crt \
-  http3_server
+  stream_server
 ```
 
 Archive an image and copy it to another machine:
 
 ```bash
-docker save -o http3_server-app.tar http3_server:latest
+docker save -o stream_server-app.tar stream_server:latest
 ```
 
 Load it on the other machine and run it:
 
 ```bash
-docker load -i http3_server-app.tar
+docker load -i stream_server-app.tar
 # then: docker run ...
 ```
 
@@ -203,20 +203,20 @@ directories, and permissions are appropriate for your setup.
 so the release can be copied out:
 
 ```bash
-docker create --name temp-http3_server http3_server
-docker cp temp-http3_server:/app /path/to/release/folder
-docker rm temp-http3_server
+docker create --name temp-stream_server stream_server
+docker cp temp-stream_server:/app /path/to/release/folder
+docker rm temp-stream_server
 
 cd /path/to/release/folder
-tar -czvf http3_server.tar.gz ./app
+tar -czvf stream_server.tar.gz ./app
 ```
 
 Copy it to the remote server and decompress:
 
 ```bash
-scp ./http3_server.tar.gz root@remote_ip:/home/http3_server
+scp ./stream_server.tar.gz root@remote_ip:/home/stream_server
 # on the remote server:
-tar -xvf http3_server.tar.gz
+tar -xvf stream_server.tar.gz
 ```
 
 ### systemd service
@@ -224,13 +224,13 @@ tar -xvf http3_server.tar.gz
 If you want file-based logs:
 
 ```bash
-mkdir /var/log/http3_server
+mkdir /var/log/stream_server
 ```
 
 Create the unit file:
 
 ```bash
-nano /etc/systemd/system/http3_server.service
+nano /etc/systemd/system/stream_server.service
 ```
 
 ```ini
@@ -240,14 +240,14 @@ Description=Http3 Server
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/http3_server/app
-ExecStart=/home/http3_server/app/bin/http3_server start
-ExecStop=/home/http3_server/app/bin/http3_server stop
+WorkingDirectory=/home/stream_server/app
+ExecStart=/home/stream_server/app/bin/stream_server start
+ExecStop=/home/stream_server/app/bin/stream_server stop
 Restart=on-failure
-EnvironmentFile=/home/env/http3_server
+EnvironmentFile=/home/env/stream_server
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=http3_server
+SyslogIdentifier=stream_server
 
 [Install]
 WantedBy=multi-user.target
@@ -256,7 +256,7 @@ WantedBy=multi-user.target
 See `man systemd.exec` for more
 [execution environment options](https://manpages.debian.org/trixie/systemd/systemd.exec.5.en.html).
 
-The `EnvironmentFile` (`/home/env/http3_server`) provides the runtime
+The `EnvironmentFile` (`/home/env/stream_server`) provides the runtime
 environment variables:
 
 ```
@@ -271,15 +271,15 @@ SSL_CERT_PATH=/home/certs/server.crt
 Set ownership and permissions, then enable the service:
 
 ```bash
-sudo chown root:root /etc/systemd/system/http3_server.service
-sudo chmod 644 /etc/systemd/system/http3_server.service
+sudo chown root:root /etc/systemd/system/stream_server.service
+sudo chmod 644 /etc/systemd/system/stream_server.service
 sudo systemctl daemon-reload
 
-systemctl start http3_server
-systemctl stop http3_server
-systemctl restart http3_server
-systemctl status http3_server
-systemctl enable http3_server
+systemctl start stream_server
+systemctl stop stream_server
+systemctl restart stream_server
+systemctl status stream_server
+systemctl enable stream_server
 ```
 
 ### Logs
@@ -287,7 +287,7 @@ systemctl enable http3_server
 Follow the service logs with:
 
 ```bash
-journalctl -fu http3_server.service
+journalctl -fu stream_server.service
 ```
 
 With `StandardOutput=journal` / `StandardError=journal` /
