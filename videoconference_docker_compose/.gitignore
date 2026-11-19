@@ -1,0 +1,11 @@
+video_conference_vite
+video_conference
+http3_server
+ansible
+certs/*.pem
+certs/*.crt
+certs/*.key
+data/*.db
+data/*.db-shm
+data/*.db-wal
+.env
