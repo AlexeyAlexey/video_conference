@@ -1,0 +1,69 @@
+defmodule VideoConferenceWeb.ConnCase do
+  @moduledoc """
+  This module defines the test case to be used by
+  tests that require setting up a connection.
+
+  Such tests rely on `Phoenix.ConnTest` and also
+  import other functionality to make it easier
+  to build common data structures and query the data layer.
+
+  Finally, if the test case interacts with the database,
+  we enable the SQL sandbox, so changes done to the database
+  are reverted at the end of every test. If you are using
+  PostgreSQL, you can even run database tests asynchronously
+  by setting `use VideoConferenceWeb.ConnCase, async: true`, although
+  this option is not recommended for other databases.
+  """
+
+  use ExUnit.CaseTemplate
+
+  using do
+    quote do
+      # The default endpoint for testing
+      @endpoint VideoConferenceWeb.Endpoint
+
+      use VideoConferenceWeb, :verified_routes
+
+      # Import conveniences for testing with connections
+      import Plug.Conn
+      import Phoenix.ConnTest
+      import VideoConferenceWeb.ConnCase
+    end
+  end
+
+  setup tags do
+    VideoConference.DataCase.setup_sandbox(tags)
+    {:ok, conn: Phoenix.ConnTest.build_conn()}
+  end
+
+  @doc """
+  Setup helper that logs the given `admin` in through the admin portal session.
+
+      test "renders the admin dashboard", %{conn: conn, admin: admin} do
+        conn = conn |> log_in_admin(admin) |> get("/admin")
+      end
+
+  """
+  def log_in_admin(conn, admin) do
+    token = VideoConference.AdminPortal.Accounts.generate_session_token(admin)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{admin_token: token})
+  end
+
+  @doc """
+  Setup helper that logs the given `admin` in through the stream server
+  admin portal session.
+
+      test "renders the portal dashboard", %{conn: conn, admin: admin} do
+        conn = conn |> log_in_stream_server_admin(admin) |> get("/stream-server-admin")
+      end
+
+  """
+  def log_in_stream_server_admin(conn, admin) do
+    token = VideoConference.StreamServerAdminPortal.Accounts.generate_session_token(admin)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{stream_server_admin_token: token})
+  end
+end
