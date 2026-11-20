@@ -48,6 +48,10 @@ Copy `.env.example` to `.env` and `.env.test.example` to `.env.test`, then adjus
 | `PHX_SERVER` | Set to `true` to start the server in releases |
 | `PORT` | HTTP port (default `4000`) |
 | `DATABASE_PATH` | Path to the SQLite database file |
+| `STREAM_SERVER_ADMIN_DATABASE_PATH` | Path to the stream server admin portal SQLite database file (separate `StreamServerAdminPortal.Repo`) |
+| `DEFAULT_STREAM_SERVER_APP_ID` | Optional UUID for the seeded default portal application (read at migration time; unset = random) |
+| `DEFAULT_STREAM_SERVER_API_KEY` | Optional secret for the seeded default portal API key (read at migration time; unset = random `ssak_...`) |
+| `SECRET_KEY_TO_ENCRYPT_PRIVATE_KEY` | Secret used to encrypt stored stream server private keys (generate with `mix phx.gen.secret`) |
 | `SECRET_KEY_BASE` | Phoenix secret (64+ chars, generate with `mix phx.gen.secret`) |
 | `JWT_SECRET` | Secret used by Joken for auth tokens |
 | `TELEPHONE_SWITCHBOARD_PRIVET_KEY` | RSA private key (PEM) used to sign stream-server auth tokens |
@@ -88,6 +92,35 @@ A small administrative web UI lives under `/admin`, isolated from the phone-base
 **Default credentials:** `admin@admin.com` / `admin`, seeded by migration — change this password immediately on any non-local deployment.
 
 Admin sessions are cookie-based (token stored server-side in `admin_tokens`, valid for 14 days) and are completely independent of the phone-token authentication used by the API and channels.
+
+## Stream server admin portal
+
+A second administrative UI lives under `/stream-server-admin`, forwarded from the main router to `VideoConferenceWeb.StreamServerAdminPortal.Router` (`lib/video_conference_web/stream_server_admin_portal/router.ex`). It manages the registry of stream servers and the third-party applications that integrate with them — applications, application↔server assignments, stream server public keys, and API keys.
+
+Unlike the `/admin` portal, it uses its **own database**: `VideoConference.StreamServerAdminPortal.Repo` backed by `STREAM_SERVER_ADMIN_DATABASE_PATH`, with migrations in `priv/stream_server_admin_portal_repo/migrations` (run by the usual `mix ecto.migrate`, which covers both repos).
+
+**Browser UI** — email/password auth via `StreamServerAdminPortal.AdminAuth`, cookie sessions (`:stream_server_admin_token`, valid for 14 days, `current_scope.admin`), same default credentials `admin@admin.com` / `admin` seeded by migration — change immediately on any real deployment.
+
+- **Sign in:** `http://localhost:4000/stream-server-admin/log-in`
+- **Dashboard:** `http://localhost:4000/stream-server-admin`
+- **Settings:** `/stream-server-admin/settings` — change password (expires all sessions)
+- **Applications:** `/stream-server-admin/applications` — manage applications, their public keys (`/applications/stream-server-public-keys`), and assigned servers (`/applications/stream-servers`)
+- **API keys:** `/stream-server-admin/api-keys` — issue application (`aak_`) credentials
+- **Stream servers:** `/stream-server-admin/stream-servers` — manage servers, assign them to applications, and issue stream server (`ssak_`) credentials under `/stream-servers/api-keys`
+
+**JSON API** — authenticated by the `X-API-Key` header via the `ApiKeyAuth` plug, which assigns `conn.assigns.api_credential`. The secret prefix selects the credential type, not the permission: `ssak_` = stream server key (`stream_server_api_keys`), `aak_` = application key (`application_api_keys`). Secrets are shown once at creation; only the bcrypt hash and a lookup prefix are stored. All auth failures return the same `401 {"errors": {"detail": "Unauthorized"}}`.
+
+| Endpoint | Credential | Purpose |
+|----------|------------|---------|
+| `GET /stream-server-admin/api/stream-server/public-key?application_id=&public_key_id=` | `ssak_` | Fetch an application's public key material; the calling server must be assigned to the application |
+| `GET /stream-server-admin/api/application/connection-info?country_codes=` | `aak_` | Resolve up to 4 ISO alpha-2 country codes to stream server connection info (`url`, `cert_hash`) for the calling application |
+| `GET /stream-server-admin/api/application/available-countries` | `aak_` | List country codes that have an assigned stream server |
+
+A default application and API key are seeded by migration — set `DEFAULT_STREAM_SERVER_APP_ID` / `DEFAULT_STREAM_SERVER_API_KEY` before migrating to pin them.
+
+**Event store** — the portal context includes an append-only event store (`StreamServerAdminPortal.EventStore`, `events`/`streams`/`event_listeners` tables). Mutations record domain events on aggregate streams via `Ecto.Multi`; listener processes configured under `config :video_conference, :stream_server_admin_portal` (`event_listeners`, `event_listener_poll_interval`) poll stored events.
+
+**LiveView + `forward` caveat** — same as `/admin`: requests arrive stripped of the `/stream-server-admin` prefix, but LiveView channel mounts verify the public URL, so the router keeps prefixed **mirror `live` routes** solely for `route_info` resolution.
 
 ## Docker
 
