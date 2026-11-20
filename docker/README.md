@@ -1,14 +1,13 @@
 # Video Conference — Docker Compose
 
-Runs the three-app video conference stack in Docker:
+Runs the three-app video conference stack in Docker (monorepo — the apps are
+sibling directories of this one):
 
-| Service          | Image                          | What it is                                                        |
-|------------------|--------------------------------|-------------------------------------------------------------------|
-| `frontend`       | `videoconference/frontend`     | nginx serving the built `video_conference_vite` (Vite + native JS) SPA |
-| `video_conference` | `videoconference/video_conference` | Elixir/Phoenix backend — API + websocket, signs JWTs          |
-| `http3_server`   | `videoconference/http3_server` | Elixir/wtransport — WebTransport (HTTP/3) media server            |
-
-The three app repos (`video_conference_vite`, `video_conference`, `http3_server`).
+| Service          | Build context   | Image                          | What it is                                              |
+|------------------|-----------------|--------------------------------|---------------------------------------------------------|
+| `frontend`       | `../frontend`   | `videoconference/frontend`     | nginx serving the built Vite + native JS SPA            |
+| `video_conference` | `../backend`  | `videoconference/video_conference` | Elixir/Phoenix backend — API + websocket, signs JWTs |
+| `http3_server`   | `../stream_server` | `videoconference/http3_server` | Elixir/wtransport — WebTransport (HTTP/3) media server  |
 
 **!** This docker compose is developed to run the app on a local dev env.
 
@@ -41,20 +40,13 @@ http3_server (media)
 
 - Docker + Docker Compose
 - `openssl` (for cert generation)
-- Two options:
-  1. The three app repos cloned into this directory:
+- This monorepo checked out — the compose file builds each app from its
+  sibling directory (`../frontend`, `../backend`, `../stream_server`)
 
-  ```bash
-  git clone https://github.com/AlexeyAlexey/video_conference_vite.git
-  git clone https://github.com/AlexeyAlexey/video_conference.git
-  git clone https://github.com/AlexeyAlexey/http3_server.git
-  ```
-
-  (If already cloned, `git checkout main && git pull` to get the latest.)
-
-  You should edit docker-compose.yml file. Look at commented "context" attribute.
-
-  2. The three app repos cloned by docker. It is used by default
+  To build from the remote repo instead, point `build.context` at the GitHub
+  URL with a subdirectory — see the commented `context` alternatives in
+  `docker-compose.yml`, e.g.
+  `https://github.com/AlexeyAlexey/video_conference.git#main:backend`
 
 ## 1. Generate certificates
 
@@ -164,14 +156,14 @@ docker compose build --no-cache   # rebuild from scratch
 You can run the app on a remote test server
 
 ```bash
-git clone https://github.com/AlexeyAlexey/videoconference_docker_compose.git
+git clone https://github.com/AlexeyAlexey/video_conference.git
 ```
 
 If the app works on behalf of "nobody" (65534):
 
 ```bash
 
-cd videoconference_docker_compose
+cd video_conference/docker
 
 mkdir ./data
 

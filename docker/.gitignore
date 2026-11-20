@@ -1,6 +1,3 @@
-video_conference_vite
-video_conference
-http3_server
 ansible
 certs/*.pem
 certs/*.crt
